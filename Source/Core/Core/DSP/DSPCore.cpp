@@ -172,7 +172,7 @@ bool SDSP::Initialize(const DSPInitOptions& opts)
   r.sr |= SR_INT_ENABLE;
   r.sr |= SR_EXT_INT_ENABLE;
 
-  control_reg = CR_INIT | CR_HALT;
+  control_reg = CR_RESET_VECTOR | CR_HALT;
   InitializeIFX();
   // Mostly keep IRAM write protected. We unprotect only when DMA-ing
   // in new ucodes.
@@ -182,7 +182,7 @@ bool SDSP::Initialize(const DSPInitOptions& opts)
 
 void SDSP::Reset()
 {
-  pc = DSP_RESET_VECTOR;
+  pc = (control_reg & CR_RESET_VECTOR) ? 0x8000 : 0x0000;
   std::ranges::fill(r.wr, 0xffff);
 }
 

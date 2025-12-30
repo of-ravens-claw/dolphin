@@ -20,6 +20,7 @@
 #include "Core/PowerPC/MMU.h"
 #include "Core/PowerPC/PowerPC.h"
 #include "Core/System.h"
+#include "Core/Debugger/Debugger_SymbolMap.h"
 
 BreakPoints::BreakPoints(Core::System& system) : m_system(system)
 {
@@ -421,6 +422,14 @@ bool TMemCheck::Action(Core::System& system, u64 value, u32 addr, bool write, si
       NOTICE_LOG_FMT(MEMMAP, "MBP {:08x} ({}) {}{} {:x} at {:08x} ({})", pc,
                      ppc_symbol_db.GetDescription(pc), write ? "Write" : "Read", size * 8, value,
                      addr, ppc_symbol_db.GetDescription(addr));
+    }
+    // taken from PR #13938 (https://github.com/dolphin-emu/dolphin/pull/13938)
+    // just the bare minimum to print it
+    {
+      ASSERT(Core::IsCPUThread());
+      Core::CPUThreadGuard guard(system);
+      Dolphin_Debugger::PrintCallstack(guard, Common::Log::LogType::MEMMAP,
+                                       Common::Log::LogLevel::LNOTICE);
     }
     if (break_on_hit)
       return true;

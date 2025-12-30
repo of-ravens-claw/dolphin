@@ -43,7 +43,7 @@ GCPadStatus CSIDevice_GCAdapter::GetPadStatus()
 
   // Our GCAdapter code sets PAD_GET_ORIGIN when a new device has been connected.
   // Watch for this to calibrate real controllers on connection.
-  if (pad_status.button & PAD_GET_ORIGIN)
+  if (pad_status.button & PAD_ORIGIN)
     SetOrigin(pad_status);
 
   return pad_status;
@@ -61,7 +61,7 @@ int CSIDevice_GCAdapter::RunBuffer(u8* buffer, int request_length)
     // into this port on the hardware gc adapter, exposing it to the game.
     if (!GCAdapter::DeviceConnected(m_device_number))
     {
-      const u32 device = Common::swap32(SI_NONE);
+      const u32 device = Common::swap32(SI_ERROR_NO_RESPONSE);
       memcpy(buffer, &device, sizeof(device));
       return 4;
     }

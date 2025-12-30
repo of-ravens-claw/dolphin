@@ -169,7 +169,7 @@ private:
   static bool Boot_WiiWAD(Core::System& system, const DiscIO::VolumeWAD& wad);
   static bool BootNANDTitle(Core::System& system, u64 title_id);
 
-  static void SetupMSR(Core::System& system);
+  static void SetupMSR(Core::System& system, bool want_relocate = true);
   static void SetupHID(PowerPC::PowerPCState& ppc_state, bool is_wii);
   static void SetupBAT(Core::System& system, bool is_wii);
   static bool RunApploader(Core::System& system, const Core::CPUThreadGuard& guard, bool is_wii,
@@ -201,6 +201,7 @@ public:
   virtual u32 GetEntryPoint() const = 0;
   virtual bool IsValid() const = 0;
   virtual bool IsWii() const = 0;
+  virtual bool IsRealMode() const = 0;
   virtual bool LoadIntoMemory(Core::System& system, bool only_in_mem1 = false) const = 0;
   virtual bool LoadSymbols(const Core::CPUThreadGuard& guard, PPCSymbolDB& ppc_symbol_db,
                            const std::string& filename) const = 0;

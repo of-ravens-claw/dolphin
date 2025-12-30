@@ -614,7 +614,9 @@ union UReg_HID4
   BitField<26, 1, u32> reserved_2;
   BitField<27, 2, u32> BPD;
   BitField<29, 2, u32> L2FM;
-  BitField<31, 1, u32> reserved_3;
+  BitField<31, 1, u32> H4A; // Broadway errata: if HID4[H4A] is set to '0',
+                            // the condition register cannot be accessed.
+                            // Therefore, HID4[H4A] should always be '1'.
 
   u32 Hex = 0;
 
@@ -756,6 +758,8 @@ union UReg_SR
   explicit UReg_SR(u32 hex_) : Hex{hex_} {}
 };
 
+// NOTE: Thermal registers are dummies on Broadway/Espresso.
+// They are functional under Gekko.
 union UReg_THRM12
 {
   BitField<0, 1, u32> V;    // Valid
@@ -842,13 +846,13 @@ enum
   SPR_TU = 269,
   SPR_TL_W = 284,
   SPR_TU_W = 285,
-  SPR_ASR = 280,
   SPR_PVR = 287,
   SPR_SPRG0 = 272,
   SPR_SPRG1 = 273,
   SPR_SPRG2 = 274,
   SPR_SPRG3 = 275,
   SPR_EAR = 282,
+
   SPR_IBAT0U = 528,
   SPR_IBAT0L = 529,
   SPR_IBAT1U = 530,
@@ -865,6 +869,61 @@ enum
   SPR_DBAT2L = 541,
   SPR_DBAT3U = 542,
   SPR_DBAT3L = 543,
+
+  SPR_UMMCR0 = 936,
+  SPR_UPMC1 = 937,
+  SPR_UPMC2 = 938,
+  SPR_USIA = 939,
+  SPR_UMMCR1 = 940,
+  SPR_UPMC3 = 941,
+  SPR_UPMC4 = 942,
+
+  SPR_MMCR0 = 952,
+  SPR_PMC1 = 953,
+  SPR_PMC2 = 954,
+  SPR_SIA = 955,
+  SPR_MMCR1 = 956,
+  SPR_PMC3 = 957,
+  SPR_PMC4 = 958,
+
+  SPR_HID0 = 1008,
+  SPR_HID1 = 1009,
+  SPR_IABR = 1010,
+  SPR_DABR = 1013,
+
+  SPR_L2CR = 1017,
+  SPR_ICTC = 1019,
+
+  SPR_THRM1 = 1020,
+  SPR_THRM2 = 1021,
+  SPR_THRM3 = 1022,
+
+  // Gekko additions
+  SPR_GQR0 = 912,
+  SPR_GQR1 = 913,
+  SPR_GQR2 = 914,
+  SPR_GQR3 = 915,
+  SPR_GQR4 = 916,
+  SPR_GQR5 = 917,
+  SPR_GQR6 = 918,
+  SPR_GQR7 = 919,
+  SPR_HID2 = 920,
+  SPR_WPAR = 921,
+  SPR_DMAU = 922,
+  SPR_DMAL = 923,
+
+  // ECID registers are not really documented anywhere.
+  // Internal document sent to Nintendo that I found documents SPRs 925, 926, and 927.
+  // Swiss reads a value from SPR 924.
+  // GC DIAG reads 924, 925, 926.
+  // RVL DIAG reads 925, 926, 927.
+  SPR_ECID0 = 924,
+  SPR_ECID1 = 925,
+  SPR_ECID2 = 926,
+  SPR_ECID3 = 927,
+
+  // Broadway additions
+  SPR_HID4 = 1011,
   SPR_IBAT4U = 560,
   SPR_IBAT4L = 561,
   SPR_IBAT5U = 562,
@@ -881,41 +940,6 @@ enum
   SPR_DBAT6L = 573,
   SPR_DBAT7U = 574,
   SPR_DBAT7L = 575,
-  SPR_GQR0 = 912,
-  SPR_HID0 = 1008,
-  SPR_HID1 = 1009,
-  SPR_HID2 = 920,
-  SPR_HID4 = 1011,
-  SPR_IABR = 1010,
-  SPR_DABR = 1013,
-  SPR_WPAR = 921,
-  SPR_DMAU = 922,
-  SPR_DMAL = 923,
-  SPR_ECID_U = 924,
-  SPR_ECID_M = 925,
-  SPR_ECID_L = 926,
-  SPR_UPMC1 = 937,
-  SPR_UPMC2 = 938,
-  SPR_UPMC3 = 941,
-  SPR_UPMC4 = 942,
-  SPR_USIA = 939,
-  SPR_SIA = 955,
-  SPR_L2CR = 1017,
-  SPR_ICTC = 1019,
-
-  SPR_UMMCR0 = 936,
-  SPR_MMCR0 = 952,
-  SPR_PMC1 = 953,
-  SPR_PMC2 = 954,
-
-  SPR_UMMCR1 = 940,
-  SPR_MMCR1 = 956,
-  SPR_PMC3 = 957,
-  SPR_PMC4 = 958,
-
-  SPR_THRM1 = 1020,
-  SPR_THRM2 = 1021,
-  SPR_THRM3 = 1022,
 };
 
 // Exceptions

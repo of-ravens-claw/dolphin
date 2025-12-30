@@ -20,67 +20,71 @@ namespace SerialInterface
 {
 // Devices can reply with these
 constexpr u32 SI_ERROR_NO_RESPONSE = 0x0008;  // Nothing is attached
-constexpr u32 SI_ERROR_UNKNOWN = 0x0040;      // Unknown device is attached
-constexpr u32 SI_ERROR_BUSY = 0x0080;         // Still detecting
+constexpr u32 SI_ERROR_UNKNOWN     = 0x0040;  // Unknown device is attached
+constexpr u32 SI_ERROR_BUSY        = 0x0080;  // Still detecting
 
 // Device types
-constexpr u32 SI_TYPE_MASK = 0x18000000;  // ???
-constexpr u32 SI_TYPE_GC = 0x08000000;
+constexpr u32 SI_TYPE_MASK = 0x1800'0000;
+constexpr u32 SI_TYPE_N64  = 0x0000'0000;
+constexpr u32 SI_TYPE_GC   = 0x0800'0000;
+constexpr u32 SI_TYPE_GCAM = 0x1000'0000; // Made up by me, Triforce baseboard uses this bit...
+// GCAM = GameCube Arcade Machine (official Nintendo name)
 
 // GC Controller types
-constexpr u32 SI_GC_NOMOTOR = 0x20000000;  // No rumble motor
-constexpr u32 SI_GC_STANDARD = 0x01000000;
+constexpr u32 SI_GC_WIRELESS = 0x8000'0000;
+constexpr u32 SI_GC_NOMOTOR  = 0x2000'0000;  // No rumble motor
+constexpr u32 SI_GC_STANDARD = 0x0100'0000;
+
+// WaveBird specific
+constexpr u32 SI_WIRELESS_RECEIVED  = 0x40000000; // 0: no wireless unit
+constexpr u32 SI_WIRELESS_IR        = 0x04000000; // 0: IR  1: RF
+constexpr u32 SI_WIRELESS_STATE     = 0x02000000; // 0: variable  1: fixed
+constexpr u32 SI_WIRELESS_ORIGIN    = 0x00200000; // 0: invalid  1: valid
+constexpr u32 SI_WIRELESS_FIX_ID    = 0x00100000; // 0: not fixed  1: fixed
+constexpr u32 SI_WIRELESS_TYPE      = 0x000F0000;
+constexpr u32 SI_WIRELESS_LITE_MASK = 0x000C0000; // 0: normal 1: lite controller
+constexpr u32 SI_WIRELESS_LITE      = 0x00040000; // 0: normal 1: lite controller
+constexpr u32 SI_WIRELESS_CONT_MASK = 0x00080000; // 0: non-controller 1: non-controller
+constexpr u32 SI_WIRELESS_CONT      = 0x00000000;
+constexpr u32 SI_WIRELESS_ID        = 0x00C0FF00;
+constexpr u32 SI_WIRELESS_TYPE_ID   = (SI_WIRELESS_TYPE | SI_WIRELESS_ID);
 
 // SI Device IDs for emulator use
 enum TSIDevices : u32
 {
-  SI_NONE = SI_ERROR_NO_RESPONSE,
-  SI_N64_MIC = 0x00010000,
-  SI_N64_KEYBOARD = 0x00020000,
-  SI_N64_MOUSE = 0x02000000,
-  SI_N64_CONTROLLER = 0x05000000,
-  SI_GBA = 0x00040000,
-  SI_GC_CONTROLLER = (SI_TYPE_GC | SI_GC_STANDARD),
-  SI_GC_KEYBOARD = (SI_TYPE_GC | 0x00200000),
-  SI_GC_STEERING =
-      SI_TYPE_GC,  // (shuffle2)I think the "chainsaw" is the same (Or else it's just standard)
-  SI_DANCEMAT = (SI_TYPE_GC | SI_GC_STANDARD | 0x00000300),
-  SI_AM_BASEBOARD = 0x10110800  // gets ORd with dipswitch state
+  SI_N64_MIC         = (SI_TYPE_N64  | 0x0001'0000),
+  SI_N64_KEYBOARD    = (SI_TYPE_N64  | 0x0002'0000),
+  SI_N64_MOUSE       = (SI_TYPE_N64  | 0x0200'0000),
+  SI_N64_CONTROLLER  = (SI_TYPE_N64  | 0x0500'0000),
+  SI_GBA             = (SI_TYPE_N64  | 0x0004'0000),
+  SI_GC_CONTROLLER   = (SI_TYPE_GC   | SI_GC_STANDARD),
+  SI_GC_KEYBOARD     = (SI_TYPE_GC   | 0x0020'0000),
+  SI_GC_STEERING     = (SI_TYPE_GC   | 0x0000'0000),
+  SI_GC_RECEIVER     = (SI_TYPE_GC   | SI_GC_WIRELESS),
+  SI_GC_WAVEBIRD     = (SI_TYPE_GC   | SI_GC_WIRELESS | SI_GC_STANDARD | SI_WIRELESS_STATE | SI_WIRELESS_FIX_ID),
+  SI_AM_BASEBOARD    = (SI_TYPE_GCAM | 0x00110800), // gets ORd with dipswitch state
 };
 
 // Commands
 enum class EBufferCommands : u8
 {
+  // TODO: There are more commands, the current peripherals don't implement all supported commands.
+  // For example, the Keyboard has at least 2 read commands.
+  // And the GameCube controller has a second read command with more data.
   CMD_STATUS = 0x00,
+  CMD_DIRECT_N64 = 0x01,
+  CMD_READ_ACCESSORY_N64 = 0x02,
+  CMD_WRITE_ACCESSORY_N64 = 0x03,
   CMD_READ_GBA = 0x14,
   CMD_WRITE_GBA = 0x15,
   CMD_SET_GAME_ID = 0x1d,
+  CMD_DIRECT_STEERING = 0x30,
   CMD_DIRECT = 0x40,
   CMD_ORIGIN = 0x41,
   CMD_RECALIBRATE = 0x42,
+  CMD_DIRECT_LONG = 0x43,
   CMD_DIRECT_KB = 0x54,
   CMD_RESET = 0xFF
-};
-
-enum class EDirectCommands : u8
-{
-  CMD_FORCE = 0x30,
-  CMD_WRITE = 0x40,
-  CMD_POLL = 0x54
-};
-
-union UCommand
-{
-  u32 hex = 0;
-  struct
-  {
-    u32 parameter1 : 8;
-    u32 parameter2 : 8;
-    u32 command : 8;
-    u32 : 8;
-  };
-  UCommand() = default;
-  UCommand(u32 value) : hex{value} {}
 };
 
 // For configuration use, since some devices can have the same SI Device ID
@@ -102,6 +106,7 @@ enum SIDevices : int
   SIDEVICE_AM_BASEBOARD,
   SIDEVICE_WIIU_ADAPTER,
   SIDEVICE_GC_GBA_EMULATED,
+  SIDEVICE_DEBUG_UART, // Simple UART. Currently TX only (GC -> PC)
   // Not a valid device. Used for checking whether enum values are valid.
   SIDEVICE_COUNT,
 };

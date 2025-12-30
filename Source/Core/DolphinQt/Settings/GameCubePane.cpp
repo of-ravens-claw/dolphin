@@ -47,9 +47,6 @@
 #include "DolphinQt/Settings.h"
 #include "DolphinQt/Settings/BroadbandAdapterSettingsDialog.h"
 
-constexpr std::initializer_list<ExpansionInterface::Slot> GUI_SLOTS = {
-    ExpansionInterface::Slot::A, ExpansionInterface::Slot::B, ExpansionInterface::Slot::SP1};
-
 GameCubePane::GameCubePane()
 {
   CreateWidgets();
@@ -87,7 +84,7 @@ void GameCubePane::CreateWidgets()
   QGridLayout* device_layout = new QGridLayout(device_box);
   device_box->setLayout(device_layout);
 
-  for (ExpansionInterface::Slot slot : GUI_SLOTS)
+  for (ExpansionInterface::Slot slot : ExpansionInterface::SLOTS)
   {
     m_slot_combos[slot] = new QComboBox(device_box);
     m_slot_combos[slot]->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
@@ -127,7 +124,7 @@ void GameCubePane::CreateWidgets()
   // Add slot devices
   for (const auto device : {EXIDeviceType::None, EXIDeviceType::Dummy, EXIDeviceType::MemoryCard,
                             EXIDeviceType::MemoryCardFolder, EXIDeviceType::Gecko,
-                            EXIDeviceType::AGP, EXIDeviceType::Microphone})
+                            EXIDeviceType::AGP, EXIDeviceType::Microphone, EXIDeviceType::Waikiki})
   {
     const QString name = tr(fmt::format("{:n}", device).c_str());
     const int value = static_cast<int>(device);
@@ -150,6 +147,17 @@ void GameCubePane::CreateWidgets()
        })
   {
     m_slot_combos[ExpansionInterface::Slot::SP1]->addItem(tr(fmt::format("{:n}", device).c_str()),
+                                                          static_cast<int>(device));
+  }
+
+  // Add SP2 devices
+  for (const auto device : {
+           EXIDeviceType::None,
+           EXIDeviceType::Dummy,
+           EXIDeviceType::AD16,
+       })
+  {
+    m_slot_combos[ExpansionInterface::Slot::SP2]->addItem(tr(fmt::format("{:n}", device).c_str()),
                                                           static_cast<int>(device));
   }
 
@@ -186,6 +194,11 @@ void GameCubePane::CreateWidgets()
     device_layout->addWidget(new QLabel(tr("SP1:")), row, 0);
     device_layout->addWidget(m_slot_combos[ExpansionInterface::Slot::SP1], row, 1);
     device_layout->addWidget(m_slot_buttons[ExpansionInterface::Slot::SP1], row, 2);
+
+    ++row;
+    device_layout->addWidget(new QLabel(tr("SP2:")), row, 0);
+    device_layout->addWidget(m_slot_combos[ExpansionInterface::Slot::SP2], row, 1);
+    device_layout->addWidget(m_slot_buttons[ExpansionInterface::Slot::SP2], row, 2);
   }
 
 #ifdef HAS_LIBMGBA
@@ -244,7 +257,7 @@ void GameCubePane::CreateWidgets()
 void GameCubePane::ConnectWidgets()
 {
   // Device Settings
-  for (ExpansionInterface::Slot slot : GUI_SLOTS)
+  for (ExpansionInterface::Slot slot : ExpansionInterface::SLOTS)
   {
     connect(m_slot_combos[slot], &QComboBox::currentIndexChanged, this,
             [this, slot] { UpdateButton(slot); });
@@ -722,7 +735,7 @@ void GameCubePane::LoadSettings()
   m_skip_main_menu->SetDescription(have_menu ? QString{} : tr("Put IPL ROMs in User/GC/<region>."));
 
   // Device Settings
-  for (ExpansionInterface::Slot slot : GUI_SLOTS)
+  for (ExpansionInterface::Slot slot : ExpansionInterface::SLOTS)
   {
     const ExpansionInterface::EXIDeviceType exi_device =
         Config::Get(Config::GetInfoForEXIDevice(slot));
@@ -748,7 +761,7 @@ void GameCubePane::SaveSettings()
 
   auto& system = Core::System::GetInstance();
   // Device Settings
-  for (ExpansionInterface::Slot slot : GUI_SLOTS)
+  for (ExpansionInterface::Slot slot : ExpansionInterface::SLOTS)
   {
     const auto dev =
         static_cast<ExpansionInterface::EXIDeviceType>(m_slot_combos[slot]->currentData().toInt());

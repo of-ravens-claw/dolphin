@@ -43,6 +43,9 @@
 #include "VideoCommon/XFMemory.h"
 #include "VideoCommon/XFStateManager.h"
 
+// If this is disabled, every game must be booted through the GameCube IPL / the Wii System Menu.
+#define ENABLE_MEMORY_SETUP_FUNCS 1
+
 namespace
 {
 void PresetTimeBaseTicks(Core::System& system, const Core::CPUThreadGuard& guard)
@@ -50,12 +53,19 @@ void PresetTimeBaseTicks(Core::System& system, const Core::CPUThreadGuard& guard
   const u64 emulated_time =
       ExpansionInterface::CEXIIPL::GetEmulatedTime(system, ExpansionInterface::CEXIIPL::GC_EPOCH);
 
+  // 40.5 Mhz
+  // in other words, Bus speed / 4
+  // (162 / 4) = 40.5
+  //
+  // On Wii, it is 60.75.
+  // (243 / 4) = 60.75
   const u64 time_base_ticks = emulated_time * 40500000ULL;
 
-  PowerPC::MMU::HostWrite<u64>(guard, time_base_ticks, 0x800030D8);
+  system.GetMemory().Write_U32(time_base_ticks, 0x000030D8);
 }
 }  // Anonymous namespace
 
+// Steps through a function until a `blr` instruction is executed.
 void CBoot::RunFunction(Core::System& system, u32 address)
 {
   auto& power_pc = system.GetPowerPC();
@@ -68,13 +78,25 @@ void CBoot::RunFunction(Core::System& system, u32 address)
     power_pc.SingleStep();
 }
 
-void CBoot::SetupMSR(Core::System& system)
+void CBoot::SetupMSR(Core::System& system, bool want_relocate)
 {
   // 0x0002032
   auto& ppc_state = system.GetPPCState();
   ppc_state.msr.RI = 1;
-  ppc_state.msr.DR = 1;
-  ppc_state.msr.IR = 1;
+
+  // Some DOLs (extremely rare) may want to launch in 'real' mode.
+  // TODO: 'real' mode DOLs will probably want the MSR to be all zeroes...?
+  if (want_relocate) [[likely]]
+  {
+    ppc_state.msr.DR = 1;
+    ppc_state.msr.IR = 1;
+  }
+  else
+  {
+    ppc_state.msr.DR = 0;
+    ppc_state.msr.IR = 0;
+  }
+
   ppc_state.msr.FP = 1;
   system.GetPowerPC().MSRUpdated();
 }
@@ -95,20 +117,20 @@ void CBoot::SetupHID(PowerPC::PowerPCState& ppc_state, bool is_wii)
   HID0(ppc_state).NHR = 1;
   HID0(ppc_state).DPM = 1;
 
-  // HID1 is initialized in PowerPC.cpp to 0x80000000
+  // HID1 is initialized in PowerPC.cpp to 0x80000000 (Gekko), 0x30000000 (Broadway)
   // HID2 is 0xe0000000
   HID2(ppc_state).PSE = 1;
   HID2(ppc_state).WPE = 1;
   HID2(ppc_state).LSQE = 1;
 
-  // HID4 is 0 on GC and 0x83900000 on Wii
+  // HID4 is 0x83900000 on Broadway, it doesn't exist on Gekko.
   if (is_wii)
   {
     HID4(ppc_state).L2CFI = 1;
     HID4(ppc_state).LPE = 1;
     HID4(ppc_state).ST0 = 1;
     HID4(ppc_state).SBE = 1;
-    HID4(ppc_state).reserved_3 = 1;
+    HID4(ppc_state).H4A = 1;
   }
 }
 
@@ -168,7 +190,7 @@ bool CBoot::RunApploader(Core::System& system, const Core::CPUThreadGuard& guard
 
   // Call iAppLoaderEntry.
   DEBUG_LOG_FMT(BOOT, "Call iAppLoaderEntry");
-  const u32 iAppLoaderFuncAddr = is_wii ? 0x80004000 : 0x80003100;
+  const u32 iAppLoaderFuncAddr = is_wii ? 0x80004000 : 0x80003100; // First usable address by applications, will be overwritten later on (this is fine and expected)
   ppc_state.gpr[3] = iAppLoaderFuncAddr + 0;
   ppc_state.gpr[4] = iAppLoaderFuncAddr + 4;
   ppc_state.gpr[5] = iAppLoaderFuncAddr + 8;
@@ -224,7 +246,7 @@ bool CBoot::RunApploader(Core::System& system, const Core::CPUThreadGuard& guard
   RunFunction(system, iAppLoaderClose);
   HLE::UnPatch(system, "AppLoaderReport");
 
-  // return
+  // the entrypoint of the DOL file is located in r3, so move it to the PC
   ppc_state.pc = ppc_state.gpr[3];
 
   branch_watch.SetRecordingActive(guard, resume_branch_watch);
@@ -232,7 +254,6 @@ bool CBoot::RunApploader(Core::System& system, const Core::CPUThreadGuard& guard
   if (volume.GetVolumeType() == DiscIO::Platform::Triforce)
   {
     auto& memory = system.GetMemory();
-
     memory.Memset(0, 0, 12);
   }
 
@@ -241,39 +262,33 @@ bool CBoot::RunApploader(Core::System& system, const Core::CPUThreadGuard& guard
 
 void CBoot::SetupGCMemory(Core::System& system, const Core::CPUThreadGuard& guard)
 {
+#if ENABLE_MEMORY_SETUP_FUNCS
   auto& memory = system.GetMemory();
 
   // Booted from bootrom. 0xE5207C22 = booted from jtag
-  PowerPC::MMU::HostWrite<u32>(guard, 0x0D15EA5E, 0x80000020);
+  memory.Write_U32(0x0D15EA5E, 0x00000020);
 
   // Physical Memory Size (24MB on retail)
-  PowerPC::MMU::HostWrite<u32>(guard, memory.GetRamSizeReal(), 0x80000028);
+  memory.Write_U32(memory.GetRamSizeReal(), 0x00000028);
 
-  // Console type - DevKit  (retail ID == 0x00000003) see YAGCD 4.2.1.1.2
-  // TODO: determine why some games fail when using a retail ID.
-  // (Seem to take different EXI paths, see Ikaruga for example)
+  // Must use a development console type in order to get working message output
   const u32 console_type = static_cast<u32>(Core::ConsoleType::LatestDevkit);
-  PowerPC::MMU::HostWrite<u32>(guard, console_type, 0x8000002C);
+  memory.Write_U32(console_type, 0x0000002C);
 
   // Fake the VI Init of the IPL (YAGCD 4.2.1.4)
-  PowerPC::MMU::HostWrite<u32>(guard, DiscIO::IsNTSC(SConfig::GetInstance().m_region) ? 0 : 1,
-                               0x800000CC);
+  memory.Write_U32(DiscIO::IsNTSC(SConfig::GetInstance().m_region) ? 0 : 1, 0x000000CC);
 
   // ARAM Size. 16MB main + 4/16/32MB external. (retail consoles have no external ARAM)
-  PowerPC::MMU::HostWrite<u32>(guard, 0x01000000, 0x800000d0);
+  memory.Write_U32(0x01000000, 0x000000D0);
 
-  PowerPC::MMU::HostWrite<u32>(guard, 0x09a7ec80, 0x800000F8);  // Bus Clock Speed
-  PowerPC::MMU::HostWrite<u32>(guard, 0x1cf7c580, 0x800000FC);  // CPU Clock Speed
-
-  PowerPC::MMU::HostWrite<u32>(guard, 0x4c000064, 0x80000300);  // Write default DSI Handler: rfi
-  PowerPC::MMU::HostWrite<u32>(guard, 0x4c000064, 0x80000800);  // Write default FPU Handler: rfi
-  PowerPC::MMU::HostWrite<u32>(guard, 0x4c000064,
-                               0x80000C00);  // Write default Syscall Handler: rfi
+  memory.Write_U32(162'000'000, 0x000000F8);  // Bus Clock Speed
+  memory.Write_U32(486'000'000, 0x000000FC);  // CPU Clock Speed
 
   PresetTimeBaseTicks(system, guard);
 
   // HIO checks this
-  // PowerPC::MMU::HostWrite<u16>(guard, 0x8200, 0x000030e6);   // Console type
+  // memory.Write_U32(0x8200, 0x000030e6);    // Console type
+  #endif
 }
 
 // __________________________________________________________________________________________________
@@ -338,6 +353,7 @@ bool CBoot::EmulatedBS2_GC(Core::System& system, const Core::CPUThreadGuard& gua
   return RunApploader(system, guard, /*is_wii*/ false, volume, riivolution_patches);
 }
 
+#if ENABLE_MEMORY_SETUP_FUNCS
 static DiscIO::Region CodeRegion(char c)
 {
   switch (c)
@@ -361,9 +377,11 @@ static DiscIO::Region CodeRegion(char c)
     return DiscIO::Region::Unknown;
   }
 }
+#endif
 
 bool CBoot::SetupWiiMemory(Core::System& system, IOS::HLE::IOSC::ConsoleType console_type)
 {
+#if ENABLE_MEMORY_SETUP_FUNCS
   static const std::map<DiscIO::Region, const RegionSetting> region_settings = {
       {DiscIO::Region::NTSC_J, {"JPN", "NTSC", "JP", "LJH"}},
       {DiscIO::Region::NTSC_U, {"USA", "NTSC", "US", "LU"}},
@@ -472,7 +490,7 @@ bool CBoot::SetupWiiMemory(Core::System& system, IOS::HLE::IOSC::ConsoleType con
   memory.Write_U32(memory.GetRamSizeReal(), 0x00000028);  // MEM1 size 24MB
   const Core::ConsoleType board_model = console_type == IOS::HLE::IOSC::ConsoleType::RVT ?
                                             Core::ConsoleType::NDEV2_1 :
-                                            Core::ConsoleType::RVL_Retail3;
+                                            Core::ConsoleType::RVL_Retail1;
   memory.Write_U32(static_cast<u32>(board_model), 0x0000002c);  // Board Model
   memory.Write_U32(0x00000000, 0x00000030);                     // Init
   memory.Write_U32(0x817FEC60, 0x00000034);                     // Init
@@ -480,14 +498,14 @@ bool CBoot::SetupWiiMemory(Core::System& system, IOS::HLE::IOSC::ConsoleType con
   memory.Write_U32(0x8008f7b8, 0x000000e4);               // Thread Init
   memory.Write_U32(memory.GetRamSizeReal(), 0x000000f0);  // "Simulated memory size" (debug mode?)
   memory.Write_U32(0x8179b500, 0x000000f4);               // __start
-  memory.Write_U32(0x0e7be2c0, 0x000000f8);               // Bus speed
-  memory.Write_U32(0x2B73A840, 0x000000fc);               // CPU speed
+  memory.Write_U32(243'000'000, 0x000000f8);              // Bus speed
+  memory.Write_U32(729'000'000, 0x000000fc);              // CPU speed
   memory.Write_U16(0x0000, 0x000030e6);                   // Console type
   memory.Write_U32(0x00000000, 0x000030c0);               // EXI
   memory.Write_U32(0x00000000, 0x000030c4);               // EXI
   memory.Write_U32(0x00000000, 0x000030dc);               // Time
   memory.Write_U32(0xffffffff, 0x000030d8);               // Unknown, set by any official NAND title
-  memory.Write_U16(0x8201, 0x000030e6);                   // Dev console / debug capable
+  memory.Write_U16(0x8201 /* DVD_DEVICECODE_PRESENT | DVD_DEVICECODE_GDEV */, 0x000030e6);                   // Dev console / debug capable
   memory.Write_U32(0x00000000, 0x000030f0);               // Apploader
 
   // During the boot process, 0x315c is first set to 0xdeadbeef by IOS
@@ -507,11 +525,11 @@ bool CBoot::SetupWiiMemory(Core::System& system, IOS::HLE::IOSC::ConsoleType con
   memory.Write_U32(DiscIO::IsNTSC(SConfig::GetInstance().m_region) ? 0 : 1, 0x000000CC);
 
   // Clear exception handler. Why? Don't we begin with only zeros?
-  for (int i = 0x3000; i <= 0x3038; i += 4)
+  for (int i = 0x3000; i < 0x3040; i += 4)
   {
     memory.Write_U32(0x00000000, i);
   }
-
+#endif
   return true;
 }
 

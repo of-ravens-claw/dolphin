@@ -280,7 +280,7 @@ void AudioInterfaceManager::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
   mmio->Register(base | AI_VOLUME_REGISTER, MMIO::DirectRead<u32>(&m_volume.hex),
                  MMIO::ComplexWrite<u32>([](Core::System& system, u32, u32 val) {
                    auto& ai = system.GetAudioInterface();
-                   ai.m_volume.hex = val;
+                   ai.m_volume.hex = val & 0xFFFF;
                    SoundStream* sound_stream = system.GetSoundStream();
                    sound_stream->GetMixer()->SetStreamingVolume(ai.m_volume.left,
                                                                 ai.m_volume.right);

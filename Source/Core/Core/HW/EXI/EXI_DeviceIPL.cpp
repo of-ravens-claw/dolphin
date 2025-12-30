@@ -120,11 +120,17 @@ CEXIIPL::CEXIIPL(Core::System& system) : IEXIDevice(system)
   {
     // If we are in Wii mode or if loading the GC IPL fails, we should still try to load fonts.
 
-    // Copy header
-    if (DiscIO::IsNTSC(SConfig::GetInstance().m_region))
-      memcpy(&m_rom[0], iplverNTSC, sizeof(iplverNTSC));
-    else
-      memcpy(&m_rom[0], iplverPAL, sizeof(iplverPAL));
+    // Wii doesn't have anything except fonts
+    // In fact, the data before the font appears to be garbage.
+    // We leave it zeroed out instead.
+    if (!system.IsWii())
+    {
+      // Copy header
+      if (DiscIO::IsNTSC(SConfig::GetInstance().m_region))
+        memcpy(&m_rom[0], iplverNTSC, sizeof(iplverNTSC));
+      else
+        memcpy(&m_rom[0], iplverPAL, sizeof(iplverPAL));
+    }
 
     // Load fonts
     LoadFontFile((File::GetSysDirectory() + GC_SYS_DIR + DIR_SEP + FONT_SHIFT_JIS), 0x1aff00);
@@ -139,7 +145,7 @@ CEXIIPL::CEXIIPL(Core::System& system) : IEXIDevice(system)
   // We Overwrite language selection here since it's possible on the GC to change the language as
   // you please
   sram.settings.language = Config::Get(Config::MAIN_GC_LANGUAGE);
-  sram.settings.rtc_bias = 0;
+  sram.settings.counterBias = 0;
   FixSRAMChecksums(&sram);
 }
 
@@ -295,7 +301,7 @@ void CEXIIPL::TransferByte(u8& data)
 
     DEBUG_LOG_FMT(EXPANSIONINTERFACE, "IPL-DEV data {} {:08x} {:02x}",
                   m_command.is_write() ? "write" : "read", address, data);
-
+                  
     auto UartFifoAccess = [&] {
       if (m_command.is_write())
       {
@@ -322,7 +328,7 @@ void CEXIIPL::TransferByte(u8& data)
         u32 dev_addr = address - ROM_BASE + m_cursor++;
         // TODO: Is this address wrapping correct? Needs a hardware test
         dev_addr %= ROM_SIZE;
-        // Technically we should descramble here iff descrambling logic is enabled.
+        // Technically we should descramble here if descrambling logic is enabled.
         // At the moment, we pre-decrypt the whole thing and
         // ignore the "enabled" bit - see CEXIIPL::CEXIIPL
         data = m_rom[dev_addr];
@@ -355,22 +361,58 @@ void CEXIIPL::TransferByte(u8& data)
       else
         data = sram[dev_addr];
     }
+    // Wii SRAM additons are missing...
+    // GameCube Barnacle additions
     else if (address >= UART_BASE && address < UART_BASE + UART_SIZE)
     {
       switch (address - UART_BASE)
       {
-      case 0:
+      case 0: // READ = TX Count (how many bytes in fifo), WRITE = TX Data (data to transmit)
         // Seems to be 16byte fifo
         UartFifoAccess();
         break;
-      case 0xc:
-        // Seen being written to after reading 4 bytes from barnacle
+
+      case 4: // READ = GPIO Input, WRITE = GPIO Output
+        if (m_command.is_write())
+        {
+          // Ignore writes
+          DEBUG_LOG_FMT(OSREPORT, "UART Barnacle GPIO Output {:x}", data);
+        }
+        else
+        {
+          DEBUG_LOG_FMT(OSREPORT, "UART Barnacle GPIO Input");
+          data = 0x00; // All GPIOs low
+        }
         break;
-      case 0x4c:
-        DEBUG_LOG_FMT(OSREPORT, "UART Barnacle {:x}", data);
+
+      case 8: // GPIO Output Enable
+        if (m_command.is_write())
+        {
+          // Ignore writes
+          DEBUG_LOG_FMT(OSREPORT, "UART Barnacle GPIO Output Enable {:x}", data);
+        }
+        else
+        {
+          DEBUG_LOG_FMT(OSREPORT, "UART Barnacle GPIO Output Enable");
+          data = 0x00;  // All GPIOs inputs
+        }
+        break;
+
+      case 0xc: // READ = Barnacle Version, WRITE = LED control
+        if (m_command.is_write())
+        {
+          // Ignore writes
+          DEBUG_LOG_FMT(OSREPORT, "UART Barnacle LED {:x}", data);
+        }
+        else
+        {
+          DEBUG_LOG_FMT(OSREPORT, "UART Barnacle Version");
+          data = 0x01; // Version 1
+        }
         break;
       }
     }
+    // Wii RTC additions
     else if (address >= WII_RTC_BASE && address < WII_RTC_BASE + WII_RTC_SIZE &&
              address - WII_RTC_BASE == 0x20)
     {
@@ -379,6 +421,7 @@ void CEXIIPL::TransferByte(u8& data)
       else
         data = g_rtc_flags.m_hex;
     }
+    // Wii Mr.EXI UART additions
     else if (address >= EUART_BASE && address < EUART_BASE + EUART_SIZE)
     {
       switch (address - EUART_BASE)
@@ -394,7 +437,7 @@ void CEXIIPL::TransferByte(u8& data)
     }
     else
     {
-      NOTICE_LOG_FMT(EXPANSIONINTERFACE, "IPL-DEV Accessing unknown device");
+      NOTICE_LOG_FMT(EXPANSIONINTERFACE, "IPL-DEV Accessing unknown device (address={:08X})", address);
     }
   }
 }

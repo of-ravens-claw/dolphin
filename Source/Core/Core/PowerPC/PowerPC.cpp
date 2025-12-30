@@ -30,6 +30,7 @@
 #include "Core/PowerPC/MMU.h"
 #include "Core/PowerPC/PPCSymbolDB.h"
 #include "Core/System.h"
+#include "Core/Debugger/Debugger_SymbolMap.h"
 
 namespace PowerPC
 {
@@ -134,29 +135,46 @@ void PowerPCManager::ResetRegisters()
   std::ranges::fill(m_ppc_state.gpr, 0U);
   std::ranges::fill(m_ppc_state.spr, 0U);
 
-  // Gamecube:
-  // 0x00080200 = lonestar 2.0
-  // 0x00088202 = lonestar 2.2
-  // 0x70000100 = gekko 1.0
-  // 0x00080100 = gekko 2.0
-  // 0x00083203 = gekko 2.3a
-  // 0x00083213 = gekko 2.3b
-  // 0x00083204 = gekko 2.4
-  // 0x00083214 = gekko 2.4e (8SE) - retail HW2
+  // Known PVR variants:
+  //
+  // GameCube:
+  // 0x00080200 = LoneStar 2.0
+  // 0x00088202 = LoneStar 2.2
+  // 0x70000100 = Gekko 1.0
+  // 0x00080100 = Gekko 2.0
+  // 0x00083203 = Gekko 2.3a
+  // 0x00083213 = Gekko 2.3b
+  // 0x00083204 = Gekko 2.4
+  // 0x00083214 = Gekko 2.4e
+  // 0x00083410 = Gekko 4.0
+  //
   // Wii:
-  // 0x00087102 = broadway retail hw
+  // 0x00087100 = Broadway 1.0  (DD1.0)
+  // 0x00087110 = Broadway 1.01 (DD1.01)
+  // 0x00087102 = Broadway 1.2  (DD1.2)
+  // 0x00087103 = Broadway 1.3  (DD1.3)
+  // 0x00087200 = Broadway 2.0  (DD2.0) (Broadway-1)
+  //
   if (m_system.IsWii())
   {
-    m_ppc_state.spr[SPR_PVR] = 0x00087102;
+    // dumped from my system... only ones that really matter are pvr & hid1
+    m_ppc_state.spr[SPR_PVR] = 0x00087200;
+    m_ppc_state.spr[SPR_HID1] = 0x30000000;  // We're running at 3x the bus clock
+    m_ppc_state.spr[SPR_ECID0] = 0x00008b2c; // Very weird, may be a Gekko leftover?
+    m_ppc_state.spr[SPR_ECID1] = 0x13ef90ac;
+    m_ppc_state.spr[SPR_ECID2] = 0x70e00040;
+    m_ppc_state.spr[SPR_ECID3] = 0x0024a380;
   }
   else
   {
     m_ppc_state.spr[SPR_PVR] = 0x00083214;
+    m_ppc_state.spr[SPR_HID1] = 0x80000000;  // We're running at 3x the bus clock
+    m_ppc_state.spr[SPR_ECID0] = 0x0d96e200;
+    m_ppc_state.spr[SPR_ECID1] = 0x1840c00d;
+    m_ppc_state.spr[SPR_ECID2] = 0x82bb08e8;
+    m_ppc_state.spr[SPR_ECID3] = 0x00000000; // Unknown, may be a Broadway addition?
   }
-  m_ppc_state.spr[SPR_HID1] = 0x80000000;  // We're running at 3x the bus clock
-  m_ppc_state.spr[SPR_ECID_U] = 0x0d96e200;
-  m_ppc_state.spr[SPR_ECID_M] = 0x1840c00d;
-  m_ppc_state.spr[SPR_ECID_L] = 0x82bb08e8;
+  // Engineering samples appear to have the ECID zeroed out.
 
   m_ppc_state.fpscr.Hex = 0;
   m_ppc_state.pc = 0;
@@ -641,6 +659,15 @@ bool PowerPCManager::CheckBreakPoints()
                    m_ppc_state.gpr[4], m_ppc_state.gpr[5], m_ppc_state.gpr[6], m_ppc_state.gpr[7],
                    m_ppc_state.gpr[8], m_ppc_state.gpr[9], m_ppc_state.gpr[10], m_ppc_state.gpr[11],
                    m_ppc_state.gpr[12], LR(m_ppc_state));
+  }
+  // taken from PR #13938 (https://github.com/dolphin-emu/dolphin/pull/13938)
+  // just the bare minimum to print it
+  {
+    auto& system = Core::System::GetInstance();
+    ASSERT(Core::IsCPUThread());
+    Core::CPUThreadGuard guard(system);
+    Dolphin_Debugger::PrintCallstack(guard, Common::Log::LogType::MEMMAP,
+                                     Common::Log::LogLevel::LNOTICE);
   }
   if (bp->break_on_hit)
     return true;

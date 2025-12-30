@@ -582,10 +582,14 @@ void DVDInterface::RegisterMMIO(MMIO::Mapping* mmio, u32 base, bool is_wii)
   // address (0x0D006000), although we allow writes to both of these addresses if Dolphin was
   // started in Wii mode. (Also, normally in Wii mode the DI MMIOs are only written by the
   // IOS /dev/di module, but we *do* emulate /dev/di writing the DI MMIOs.)
+  //
+  // On Wii:
+  // This is controlled by ACRCOMPAT[DI_EXP_ADDR].
+  // GC mode behaves identically to a real GC (bit cleared).
   mmio->Register(base | DI_DMA_ADDRESS_REGISTER, MMIO::DirectRead<u32>(&m_DIMAR),
                  MMIO::DirectWrite<u32>(&m_DIMAR, is_wii ? ~0x1F : ~0xFC00001F));
   mmio->Register(base | DI_DMA_LENGTH_REGISTER, MMIO::DirectRead<u32>(&m_DILENGTH),
-                 MMIO::DirectWrite<u32>(&m_DILENGTH, ~0x1F));
+                 MMIO::DirectWrite<u32>(&m_DILENGTH, is_wii ? ~0x1F : ~0xFC00001F));
   mmio->Register(base | DI_DMA_CONTROL_REGISTER, MMIO::DirectRead<u32>(&m_DICR.Hex),
                  MMIO::ComplexWrite<u32>([](Core::System& system, u32, u32 val) {
                    auto& di = system.GetDVDInterface();
@@ -800,7 +804,7 @@ void DVDInterface::ExecuteCommand(ReplyType reply_type)
   // DMA Read from Disc. Only used through direct access on GC; direct use is prohibited by
   // IOS (which uses it internally)
   case DICommand::Read:
-    switch (m_DICMDBUF[0] & 0xFF)
+    switch (m_DICMDBUF[0] & 0xC0)
     {
     case 0x00:  // Read Sector
     {

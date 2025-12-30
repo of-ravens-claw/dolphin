@@ -55,7 +55,7 @@ void GeckoSockServer::GeckoConnectionWaiter()
   Common::SetCurrentThreadName("Gecko Connection Waiter");
 
   sf::TcpListener server;
-  server_port = 0xd6ec;  // "dolphin gecko"
+  server_port = 0xd6ec;  // "dolphin gecko" 55020
   for (int bind_tries = 0; bind_tries <= 10 && !server_running.IsSet(); bind_tries++)
   {
     server_running.Set(server.listen(server_port) == sf::Socket::Status::Done);

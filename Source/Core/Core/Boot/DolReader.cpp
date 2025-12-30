@@ -43,6 +43,7 @@ bool DolReader::Initialize(const std::vector<u8>& buffer)
   for (size_t i = 0; i < (sizeof(SDolHeader) / sizeof(u32)); i++)
     p[i] = Common::swap32(p[i]);
 
+  // Search for `mtspr rX, HID4`
   const u32 HID4_pattern = Common::swap32(0x7c13fba6);
   const u32 HID4_mask = Common::swap32(0xfc1fffff);
 
@@ -106,6 +107,21 @@ bool DolReader::Initialize(const std::vector<u8>& buffer)
     if (Common::swap32(m_data_sections[0].data()) == ANCAST_MAGIC)
       m_is_ancast = true;
   }
+
+  // This check is done somewhat dumbly.
+  // We only check if the entrypoint is in a physical memory range.
+  // i.e. 0x00000000 - 0x1fffffff, as opposed to 0x80000000 - 0x9fffffff
+  // note that this allows loading into mem2 as well.
+  // but real mode usually will use the entrypoint at 0x00003400 (wii), so this is given preference.
+  // todo: are there any valid real mode gamecube code? besides bs1, that does not count.
+  //
+  // note: we allow cached addresses too, even though i think loading dols to uncached addresses
+  // is technically considered invalid. the apploader (i.e. the reference implementation)
+  // aborts if the dol is not somewhere in the 0x80000000 - 0x80700000 (0x81200000 on developer hardware!) range.
+  if (GetEntryPoint() == 0x3400 || (GetEntryPoint() & 0xC0000000) == 0)
+    m_is_real_mode = true;
+  else
+    m_is_real_mode = false;
 
   return true;
 }

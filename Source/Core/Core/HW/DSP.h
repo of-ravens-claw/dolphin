@@ -55,14 +55,13 @@ union UDSPControl
     // ARAM DMA interrupt
     u16 ARAM : 1;
     u16 ARAM_mask : 1;
-    // DSP DMA interrupt
+    // DSP interrupt
     u16 DSP : 1;
     u16 DSP_mask : 1;
-    // Other ???
-    u16 DMAState : 1;     // DSPGetDMAStatus() uses this flag. __ARWaitForDMA() uses it too...maybe
-                          // it's just general DMA flag
-    u16 DSPInitCode : 1;  // Indicator that the DSP was initialized?
-    u16 DSPInit : 1;      // DSPInit() writes to this flag
+    // Other
+    u16 ARAM_dma_busy : 1;
+    u16 DSP_dma_busy : 1;
+    u16 DSP_reset_vector : 1; // If set, DSP boots from 0x8000, otherwise, DSP boots from 0x0000
     u16 pad : 4;
   };
   UDSPControl(u16 hex = 0) : Hex(hex) {}
@@ -157,14 +156,28 @@ private:
     u8* ptr = nullptr;  // aka audio ram, auxiliary ram, MEM2, EXRAM, etc...
   };
 
-  union ARAM_Info
+  union ARAMConfig
   {
     u16 Hex = 0;
     struct
     {
-      u16 size : 6;
-      u16 unk : 1;
+      u16 internalSize : 3;
+      u16 externalSize : 3;
+      u16 modeSetting : 1;
       u16 : 9;
+    };
+  };
+
+  union ARAMControlTest
+  {
+    u16 Hex = 0;
+    struct
+    {
+      u16 refresh : 8;
+      u16 infiniteRefresh : 1;
+      u16 controllerDisable : 1;
+      u16 initialWaitBypass : 1;
+      u16 : 5;
     };
   };
 
@@ -172,12 +185,9 @@ private:
   AudioDMA m_audio_dma;
   ARAM_DMA m_aram_dma;
   UDSPControl m_dsp_control;
-  ARAM_Info m_aram_info;
-  // Contains bitfields for some stuff we don't care about (and nothing ever reads):
-  //  CAS latency/burst length/addressing mode/write mode
-  // We care about the LSB tho. It indicates that the ARAM controller has finished initializing
-  u16 m_aram_mode = 0;
-  u16 m_aram_refresh = 0;
+  ARAMConfig m_aram_config;
+  u16 m_aram_normal_flag = 0;
+  ARAMControlTest m_aram_control_test;
   int m_dsp_slice = 0;
 
   std::unique_ptr<DSPEmulator> m_dsp_emulator;

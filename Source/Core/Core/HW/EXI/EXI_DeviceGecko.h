@@ -63,6 +63,8 @@ private:
     CMD_SEND = 0xb,
     CMD_CHK_TX = 0xc,
     CMD_CHK_RX = 0xd,
+    CMD_FLASH_WRITE = 0xe,
+    CMD_FLASH_READ = 0xf,
   };
 
   static const u32 ident = 0x04700000;

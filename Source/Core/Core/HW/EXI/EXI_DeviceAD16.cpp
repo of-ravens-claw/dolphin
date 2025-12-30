@@ -30,6 +30,7 @@ void CEXIAD16::TransferByte(u8& byte)
   if (m_position == 0)
   {
     m_command = byte;
+    INFO_LOG_FMT(EXPANSIONINTERFACE, "AD16 command: 0x{:02X}", m_command);
   }
   else
   {
@@ -54,6 +55,7 @@ void CEXIAD16::TransferByte(u8& byte)
         break;
       case 5:
         byte = m_ad16_register.U8[3];
+        INFO_LOG_FMT(EXPANSIONINTERFACE, "AD16 initialization command");
         break;
       }
     }
@@ -95,6 +97,7 @@ void CEXIAD16::TransferByte(u8& byte)
         break;
       case 4:
         byte = m_ad16_register.U8[3];
+        INFO_LOG_FMT(EXPANSIONINTERFACE, "AD16 sent: 0x{:08X}", m_ad16_register.U32);
         break;
       }
     }

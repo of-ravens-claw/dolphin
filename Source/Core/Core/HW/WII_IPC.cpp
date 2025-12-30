@@ -33,7 +33,7 @@ enum
   IPC_ARMMSG = 0x08,
   IPC_ARMCTRL = 0x0c,
 
-  PPCSPEED = 0x18,
+  VI1CFG = 0x18,
   VISOLID = 0x24,
 
   PPC_IRQFLAG = 0x30,
@@ -51,11 +51,14 @@ enum
   GPIO_DIR = 0xe4,
   GPIO_IN = 0xe8,
 
-  HW_RESETS = 0x194,
+  COMPAT = 0x180,
+  CLOCKS = 0x190,
+  RESETS = 0x194,
 
-  UNK_180 = 0x180,
-  UNK_1CC = 0x1cc,
-  UNK_1D0 = 0x1d0,
+  PLLAI = 0x1cc,
+  PLLAIEXT = 0x1d0,
+
+  VERSION = 0x214,
 };
 
 // Indicates which pins are accessible by broadway.  Writable by starlet only.
@@ -90,8 +93,9 @@ void WiiIPC::InitState()
 
   m_ppc_irq_flags = 0;
   m_ppc_irq_masks = 0;
-  m_arm_irq_flags = 0;
-  m_arm_irq_masks = 0;
+  // ... stupid hacks to pass some AHBPROT checks...
+  m_arm_irq_flags = 0x1; // Timer
+  m_arm_irq_masks = 0x40000 | 0x8 | 0x4 | 0x1; // DI, SHA-1, AES, Timer
 
   // The only inputs are POWER, EJECT_BTN, SLOT_IN, and EEP_MISO; Broadway only has access to
   // SLOT_IN
@@ -129,7 +133,8 @@ void WiiIPC::Shutdown()
 
 void WiiIPC::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
 {
-  mmio->Register(base | IPC_PPCMSG, MMIO::InvalidRead<u32>(), MMIO::DirectWrite<u32>(&m_ppc_msg));
+  mmio->Register(base | IPC_PPCMSG, MMIO::DirectRead<u32>(&m_ppc_msg),
+                 MMIO::DirectWrite<u32>(&m_ppc_msg));
 
   mmio->Register(base | IPC_PPCCTRL, MMIO::ComplexRead<u32>([](Core::System& system, u32) {
                    auto& wii_ipc = system.GetWiiIPC();
@@ -149,9 +154,28 @@ void WiiIPC::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
                                                         0);
                  }));
 
-  mmio->Register(base | IPC_ARMMSG, MMIO::DirectRead<u32>(&m_arm_msg), MMIO::InvalidWrite<u32>());
+  mmio->Register(base | IPC_ARMMSG, MMIO::DirectRead<u32>(&m_arm_msg),
+                 MMIO::DirectWrite<u32>(&m_arm_msg));
 
-  mmio->Register(base | PPC_IRQFLAG, MMIO::InvalidRead<u32>(),
+  mmio->Register(base | IPC_ARMCTRL, MMIO::ComplexRead<u32>([](Core::System& system, u32) {
+                   auto& wii_ipc = system.GetWiiIPC();
+                   return wii_ipc.m_ctrl.arm();
+                 }),
+                 MMIO::ComplexWrite<u32>([](Core::System& system, u32, u32 val) {
+                   auto& wii_ipc = system.GetWiiIPC();
+                   wii_ipc.m_ctrl.arm(val);
+                   // The IPC interrupt is triggered when IX1/IX2 is set and
+                   // X1/X2 is written to -- even when this results in clearing the bit.
+                   if ((val >> 2 & 1 && wii_ipc.m_ctrl.IX1) || (val >> 1 & 1 && wii_ipc.m_ctrl.IX2))
+                     wii_ipc.m_arm_irq_flags |= INT_CAUSE_IPC_STARLET;
+                   if (wii_ipc.m_ctrl.Y1)
+                     system.GetIOS()->EnqueueIPCRequest(wii_ipc.m_arm_msg);
+                   system.GetIOS()->UpdateIPC();
+                   system.GetCoreTiming().ScheduleEvent(0, wii_ipc.m_event_type_update_interrupts,
+                                                        0);
+                 }));
+
+  mmio->Register(base | PPC_IRQFLAG, MMIO::DirectRead<u32>(&m_ppc_irq_flags),
                  MMIO::ComplexWrite<u32>([](Core::System& system, u32, u32 val) {
                    auto& wii_ipc = system.GetWiiIPC();
                    wii_ipc.m_ppc_irq_flags &= ~val;
@@ -160,11 +184,31 @@ void WiiIPC::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
                                                         0);
                  }));
 
-  mmio->Register(base | PPC_IRQMASK, MMIO::InvalidRead<u32>(),
+  mmio->Register(base | PPC_IRQMASK, MMIO::DirectRead<u32>(&m_ppc_irq_masks),
                  MMIO::ComplexWrite<u32>([](Core::System& system, u32, u32 val) {
                    auto& wii_ipc = system.GetWiiIPC();
                    wii_ipc.m_ppc_irq_masks = val;
                    if (wii_ipc.m_ppc_irq_masks & INT_CAUSE_IPC_BROADWAY)  // wtf?
+                     wii_ipc.Reset();
+                   system.GetIOS()->UpdateIPC();
+                   system.GetCoreTiming().ScheduleEvent(0, wii_ipc.m_event_type_update_interrupts,
+                                                        0);
+                 }));
+
+  mmio->Register(base | ARM_IRQFLAG, MMIO::DirectRead<u32>(&m_arm_irq_flags),
+                 MMIO::ComplexWrite<u32>([](Core::System& system, u32, u32 val) {
+                   auto& wii_ipc = system.GetWiiIPC();
+                   wii_ipc.m_arm_irq_flags &= ~val;
+                   system.GetIOS()->UpdateIPC();
+                   system.GetCoreTiming().ScheduleEvent(0, wii_ipc.m_event_type_update_interrupts,
+                                                        0);
+                 }));
+
+  mmio->Register(base | ARM_IRQMASK, MMIO::DirectRead<u32>(&m_arm_irq_masks),
+                 MMIO::ComplexWrite<u32>([](Core::System& system, u32, u32 val) {
+                   auto& wii_ipc = system.GetWiiIPC();
+                   wii_ipc.m_arm_irq_masks = val;
+                   if (wii_ipc.m_arm_irq_masks & INT_CAUSE_IPC_STARLET)  // wtf?
                      wii_ipc.Reset();
                    system.GetIOS()->UpdateIPC();
                    system.GetCoreTiming().ScheduleEvent(0, wii_ipc.m_event_type_update_interrupts,
@@ -238,7 +282,14 @@ void WiiIPC::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
                  }),
                  MMIO::Nop<u32>());
 
-  mmio->Register(base | HW_RESETS, MMIO::DirectRead<u32>(&m_resets),
+  mmio->Register(base | COMPAT, MMIO::ComplexRead<u32>([](Core::System& system, u32) {
+                   if (system.IsMIOS())
+                     return 2;
+                   return 0;
+                 }),
+                 MMIO::Nop<u32>());
+
+  mmio->Register(base | RESETS, MMIO::DirectRead<u32>(&m_resets),
                  MMIO::ComplexWrite<u32>([](Core::System& system, u32, u32 val) {
                    // A reset occurs when the corresponding bit is cleared
                    auto& wii_ipc = system.GetWiiIPC();
@@ -254,11 +305,13 @@ void WiiIPC::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
                  }));
 
   // Register some stubbed/unknown MMIOs required to make Wii games work.
-  mmio->Register(base | PPCSPEED, MMIO::InvalidRead<u32>(), MMIO::Nop<u32>());
+  mmio->Register(base | VI1CFG, MMIO::InvalidRead<u32>(), MMIO::Nop<u32>());
   mmio->Register(base | VISOLID, MMIO::InvalidRead<u32>(), MMIO::Nop<u32>());
-  mmio->Register(base | UNK_180, MMIO::Constant<u32>(0), MMIO::Nop<u32>());
-  mmio->Register(base | UNK_1CC, MMIO::Constant<u32>(0), MMIO::Nop<u32>());
-  mmio->Register(base | UNK_1D0, MMIO::Constant<u32>(0), MMIO::Nop<u32>());
+  mmio->Register(base | CLOCKS, MMIO::Constant<u32>(0), MMIO::Nop<u32>());
+  mmio->Register(base | PLLAI, MMIO::Constant<u32>(0), MMIO::Nop<u32>());
+  mmio->Register(base | PLLAIEXT, MMIO::Constant<u32>(0), MMIO::Nop<u32>());
+
+  mmio->Register(base | VERSION, MMIO::Constant<u32>(0x11 /* Hollywood ES 2.1 */), MMIO::InvalidWrite<u32>());
 }
 
 void WiiIPC::UpdateInterruptsCallback(Core::System& system, u64 userdata, s64 cycles_late)

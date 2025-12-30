@@ -229,7 +229,7 @@ bool ElfReader::LoadSymbols(const Core::CPUThreadGuard& guard, PPCSymbolDB& ppc_
 
 bool ElfReader::IsWii() const
 {
-  // Use the same method as the DOL loader uses: search for mfspr from HID4,
+  // Use the same method as the DOL loader uses: search for `mtspr rX, HID4`,
   // which should only be used in Wii ELFs.
   //
   // Likely to have some false positives/negatives, patches implementing a
@@ -251,6 +251,18 @@ bool ElfReader::IsWii() const
       }
     }
   }
+
+  return false;
+}
+
+bool ElfReader::IsRealMode() const
+{
+  // uses the same method as the dol loader.
+  // as such, i will not be explaining it again.
+  // please refer to DolReader.cpp for more information.
+
+  if (GetEntryPoint() == 0x3400 || (GetEntryPoint() & 0xC0000000) == 0)
+    return true;
 
   return false;
 }

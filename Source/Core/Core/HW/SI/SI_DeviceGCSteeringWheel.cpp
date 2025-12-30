@@ -43,13 +43,15 @@ int CSIDevice_GCSteeringWheel::RunBuffer(u8* buffer, int request_length)
 
 DataResponse CSIDevice_GCSteeringWheel::GetData(u32& hi, u32& low)
 {
+  // this is so wrong... it's not actually mode at all...
+  // in fact, this has nothing to do with regular GC pads at all... fucking hell
   if (m_mode == 6)
   {
     const GCPadStatus pad_status = GetPadStatus();
 
     hi = (u32)((u8)pad_status.stickX);  // Steering
     hi |= 0x800;                        // Pedal connected flag
-    hi |= (u32)((u16)(pad_status.button | PAD_USE_ORIGIN) << 16);
+    hi |= (u32)((u16)(pad_status.button | PAD_INTERFERE) << 16);
 
     low = (u8)pad_status.triggerRight;              // All 8 bits
     low |= (u32)((u8)pad_status.triggerLeft << 8);  // All 8 bits
@@ -98,9 +100,8 @@ DataResponse CSIDevice_GCSteeringWheel::GetData(u32& hi, u32& low)
 
 void CSIDevice_GCSteeringWheel::SendCommand(u32 command, u8 poll)
 {
-  UCommand wheel_command(command);
-
-  if (static_cast<EDirectCommands>(wheel_command.command) == EDirectCommands::CMD_FORCE)
+  //if (static_cast<EDirectCommands>((command & 0x00FF0000) >> 16) == EDirectCommands::CMD_FORCE)
+  if (static_cast<EBufferCommands>((command & 0x00FF0000) >> 16) == EBufferCommands::CMD_DIRECT_STEERING)
   {
     // get the correct pad number that should rumble locally when using netplay
     const int pad_num = NetPlay_InGamePadToLocalPad(m_device_number);
@@ -108,11 +109,11 @@ void CSIDevice_GCSteeringWheel::SendCommand(u32 command, u8 poll)
     if (pad_num < 4)
     {
       // Lowest bit is the high bit of the strength field.
-      const auto type = ForceCommandType(wheel_command.parameter2 >> 1);
+      const auto type = ForceCommandType((command & 0x0000FE00) >> 9);
 
       // Strength is a 9 bit value from 0 to 256.
       // 0 = left strong, 256 = right strong
-      const u32 strength = ((wheel_command.parameter2 & 1) << 8) | wheel_command.parameter1;
+      const u32 strength = command & 0x000001FF;
 
       switch (type)
       {
@@ -134,7 +135,7 @@ void CSIDevice_GCSteeringWheel::SendCommand(u32 command, u8 poll)
 
     if (poll == 0)
     {
-      m_mode = wheel_command.parameter2;
+      m_mode = (command & 0x00000700) >> 8; // This is wrong, but whatever...
       INFO_LOG_FMT(SERIALINTERFACE, "PAD {} set to mode {}", m_device_number, m_mode);
     }
   }

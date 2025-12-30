@@ -43,6 +43,9 @@ static constexpr std::array s_gc_types = {
 #endif
     SIDeviceName{SerialInterface::SIDEVICE_GC_GBA, _trans("GBA (TCP)")},
     SIDeviceName{SerialInterface::SIDEVICE_GC_KEYBOARD, _trans("Keyboard Controller")},
+    SIDeviceName{SerialInterface::SIDEVICE_N64_CONTROLLER, _trans("N64 Controller")},
+    SIDeviceName{SerialInterface::SIDEVICE_N64_MOUSE, _trans("N64 Mouse")},
+    SIDeviceName{SerialInterface::SIDEVICE_DEBUG_UART, _trans("Debug UART")},
 };
 
 static std::optional<int> ToGCMenuIndex(const SerialInterface::SIDevices sidevice)
@@ -156,6 +159,11 @@ void GamecubeControllersWidget::OnGCPadConfigure(size_t index)
     break;
   case SerialInterface::SIDEVICE_GC_KEYBOARD:
     type = MappingWindow::Type::MAPPING_GC_KEYBOARD;
+    break;
+
+  // TODO: Using GameCube mappings for this is... not ideal
+  case SerialInterface::SIDEVICE_N64_CONTROLLER:
+    type = MappingWindow::Type::MAPPING_GCPAD;
     break;
   default:
     return;

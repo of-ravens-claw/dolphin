@@ -60,11 +60,6 @@ enum : u32
   DSP_COEF_MASK = 0x7ff
 };
 
-enum : u16
-{
-  DSP_RESET_VECTOR = 0x8000
-};
-
 enum : u8
 {
   DSP_STACK_DEPTH = 0x20,
@@ -192,8 +187,8 @@ enum : u32
   CR_RESET = 0x0001,
   CR_EXTERNAL_INT = 0x0002,
   CR_HALT = 0x0004,
-  CR_INIT_CODE = 0x0400,
-  CR_INIT = 0x0800
+  CR_DSP_DMA_BUSY = 0x0400,
+  CR_RESET_VECTOR = 0x0800
 };
 
 // SR bits

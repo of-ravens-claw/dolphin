@@ -16,7 +16,7 @@
 // clang-format off
 const Sram sram_dump = {Common::BigEndianValue<u32>{0},
                         {Common::BigEndianValue<u16>{0x2c}, Common::BigEndianValue<u16>{0xffd0}, 0,
-                         0, 0, 0, 0, 0, {0x20 | SramFlags::kOobeDone | SramFlags::kStereo}},
+                         0, 0, 0, 0, 0, {SramFlags::kClockAdjust | SramFlags::kValidCounterBias | SramFlags::kStereo}},
                         {{
                              {'D', 'O', 'L', 'P', 'H', 'I', 'N', 'S', 'L', 'O', 'T', 'A'},
                              {'D', 'O', 'L', 'P', 'H', 'I', 'N', 'S', 'L', 'O', 'T', 'B'},
@@ -72,7 +72,7 @@ void SetCardFlashID(Sram* sram, const u8* buffer, ExpansionInterface::Slot card_
     rand = (((rand * (u64)0x0000000041c64e6dULL) + (u64)0x0000000000003039ULL) >> 16);
     rand &= (u64)0x0000000000007fffULL;
   }
-  sram->settings_ex.flash_id_checksum[card_index] = csum ^ 0xFF;
+  sram->settings_ex.flashIDCheckSum[card_index] = csum ^ 0xFF;
 }
 
 void FixSRAMChecksums(Sram* sram)
@@ -80,7 +80,7 @@ void FixSRAMChecksums(Sram* sram)
   // 16bit big-endian additive checksum
   u16 checksum = 0;
   u16 checksum_inv = 0;
-  for (auto p = reinterpret_cast<u16*>(&sram->settings.rtc_bias);
+  for (auto p = reinterpret_cast<u16*>(&sram->settings.counterBias);
        p != reinterpret_cast<u16*>(&sram->settings_ex); p++)
   {
     u16 value = Common::FromBigEndian(*p);

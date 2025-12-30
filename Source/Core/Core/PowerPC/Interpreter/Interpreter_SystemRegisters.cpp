@@ -222,7 +222,7 @@ void Interpreter::mtsrin(Interpreter& interpreter, UGeckoInstruction inst)
 
 void Interpreter::mftb(Interpreter& interpreter, UGeckoInstruction inst)
 {
-  [[maybe_unused]] const u32 index = (inst.TBR >> 5) | ((inst.TBR & 0x1F) << 5);
+  [[maybe_unused]] const u32 index = (inst.SPRU << 5) | (inst.SPRL & 0x1F);
   DEBUG_ASSERT_MSG(POWERPC, (index == SPR_TL) || (index == SPR_TU), "Invalid mftb");
   mfspr(interpreter, inst);
 }
@@ -230,7 +230,7 @@ void Interpreter::mftb(Interpreter& interpreter, UGeckoInstruction inst)
 void Interpreter::mfspr(Interpreter& interpreter, UGeckoInstruction inst)
 {
   auto& ppc_state = interpreter.m_ppc_state;
-  const u32 index = ((inst.SPR & 0x1F) << 5) + ((inst.SPR >> 5) & 0x1F);
+  const u32 index = (inst.SPRU << 5) | (inst.SPRL & 0x1F);
 
   // XER, LR, CTR, and timebase halves are the only ones available in user mode.
   if (ppc_state.msr.PR && index != SPR_XER && index != SPR_LR && index != SPR_CTR &&
@@ -368,6 +368,8 @@ void Interpreter::mtspr(Interpreter& interpreter, UGeckoInstruction inst)
     // Despite being documented as a read-only register, it actually isn't. Bits
     // 0-4 (27-31 from a little endian perspective) are modifiable. The rest are not
     // affected, as those bits are reserved and ignore writes to them.
+    //
+    // TODO: On Gekko, bit 4 is reserved. Thus I assume it should probably ignore writes?
     ppc_state.spr[index] &= 0xF8000000;
     break;
 
@@ -397,13 +399,13 @@ void Interpreter::mtspr(Interpreter& interpreter, UGeckoInstruction inst)
 
   // Graphics Quantization Registers
   case SPR_GQR0:
-  case SPR_GQR0 + 1:
-  case SPR_GQR0 + 2:
-  case SPR_GQR0 + 3:
-  case SPR_GQR0 + 4:
-  case SPR_GQR0 + 5:
-  case SPR_GQR0 + 6:
-  case SPR_GQR0 + 7:
+  case SPR_GQR1:
+  case SPR_GQR2:
+  case SPR_GQR3:
+  case SPR_GQR4:
+  case SPR_GQR5:
+  case SPR_GQR6:
+  case SPR_GQR7:
     break;
 
   case SPR_DMAL:
@@ -507,6 +509,7 @@ void Interpreter::mtspr(Interpreter& interpreter, UGeckoInstruction inst)
     // settings that impact both.
     //
     // TODO: Support thermal interrupts when enabled.
+    // TODO: This should be a dummy under Broadway.
     constexpr u32 SIMULATED_TEMP = 42;  // °C
 
     auto UpdateThermalReg = [&ppc_state](UReg_THRM12* reg) {

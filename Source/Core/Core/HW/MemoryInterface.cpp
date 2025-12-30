@@ -9,7 +9,9 @@
 
 #include "Common/BitField.h"
 #include "Common/ChunkFile.h"
+#include "Common/Config/Config.h"
 #include "Common/CommonTypes.h"
+#include "Core/Config/MainSettings.h"
 #include "Core/HW/MMIO.h"
 
 namespace MemoryInterface
@@ -28,9 +30,11 @@ enum
   MI_PROT_TYPE = 0x010,
   MI_IRQMASK = 0x01C,
   MI_IRQFLAG = 0x01E,
-  MI_UNKNOWN1 = 0x020,
+  MI_IRQCLR = 0x020,
   MI_PROT_ADDR_LO = 0x022,
   MI_PROT_ADDR_HI = 0x024,
+  MI_REFRESH = 0x026,
+  MI_CONFIG = 0x028,
   MI_TIMER0_HI = 0x032,
   MI_TIMER0_LO = 0x034,
   MI_TIMER1_HI = 0x036,
@@ -51,7 +55,7 @@ enum
   MI_TIMER8_LO = 0x054,
   MI_TIMER9_HI = 0x056,
   MI_TIMER9_LO = 0x058,
-  MI_UNKNOWN2 = 0x05A,
+  MI_DRV_STRENGTH = 0x05A,
 };
 
 MemoryInterfaceManager::MemoryInterfaceManager() = default;
@@ -62,6 +66,23 @@ void MemoryInterfaceManager::Init()
 {
   static_assert(std::is_trivially_copyable_v<MIMemStruct>);
   std::memset(static_cast<void*>(&m_mi_mem), 0, sizeof(MIMemStruct));
+
+  m_mi_mem.config = 2;  // 1 bank, 24 mb total (1x24)
+  if (Config::Get(Config::MAIN_RAM_OVERRIDE_ENABLE))
+  {
+    u32 mem1_size = Config::Get(Config::MAIN_MEM1_SIZE);
+    if (mem1_size == 0x01000000)  // 16 MB
+      m_mi_mem.config = 0;        // 1 bank, 16 mb total (1x16)
+    if (mem1_size == 0x02000000)  // 32 MB
+      m_mi_mem.config = 1;        // 2 banks, 32 mb total (2x16)
+    if (mem1_size == 0x01800000)  // 24 MB
+      m_mi_mem.config = 2;        // 1 bank, 24 mb total (1x24)
+    if (mem1_size == 0x03000000)  // 48 MB
+      m_mi_mem.config = 3;        // 2 banks, 48 mb total (2x24)
+    // 1x32 is an option, but we handle 32 MB as 2x16 instead...
+    if (mem1_size == 0x04000000)  // 64 MB
+      m_mi_mem.config = 5;        // 2 banks, 64 mb total (2x32)
+  }
 }
 
 void MemoryInterfaceManager::Shutdown()
@@ -94,8 +115,8 @@ void MemoryInterfaceManager::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
   mmio->Register(base | MI_IRQFLAG, MMIO::DirectRead<u16>(&m_mi_mem.irq_flag.hex),
                  MMIO::DirectWrite<u16>(&m_mi_mem.irq_flag.hex));
 
-  mmio->Register(base | MI_UNKNOWN1, MMIO::DirectRead<u16>(&m_mi_mem.unknown1),
-                 MMIO::DirectWrite<u16>(&m_mi_mem.unknown1));
+  mmio->Register(base | MI_IRQCLR, MMIO::DirectRead<u16>(&m_mi_mem.irq_clr),
+                 MMIO::DirectWrite<u16>(&m_mi_mem.irq_clr));
 
   // The naming is confusing here: the register contains the lower part of
   // the address (hence MI_..._LO but this is still the high part of the
@@ -104,6 +125,12 @@ void MemoryInterfaceManager::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
                  MMIO::DirectWrite<u16>(&m_mi_mem.prot_addr.hi));
   mmio->Register(base | MI_PROT_ADDR_HI, MMIO::DirectRead<u16>(&m_mi_mem.prot_addr.lo),
                  MMIO::DirectWrite<u16>(&m_mi_mem.prot_addr.lo));
+
+  mmio->Register(base | MI_REFRESH, MMIO::DirectRead<u16>(&m_mi_mem.refresh),
+                 MMIO::DirectWrite<u16>(&m_mi_mem.refresh));
+
+  mmio->Register(base | MI_CONFIG, MMIO::DirectRead<u16>(&m_mi_mem.config),
+                 MMIO::DirectWrite<u16>(&m_mi_mem.config));
 
   for (u32 i = 0; i < m_mi_mem.timers.size(); ++i)
   {
@@ -114,8 +141,8 @@ void MemoryInterfaceManager::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
                    MMIO::DirectWrite<u16>(&timer.lo));
   }
 
-  mmio->Register(base | MI_UNKNOWN2, MMIO::DirectRead<u16>(&m_mi_mem.unknown2),
-                 MMIO::DirectWrite<u16>(&m_mi_mem.unknown2));
+  mmio->Register(base | MI_DRV_STRENGTH, MMIO::DirectRead<u16>(&m_mi_mem.drv_strength),
+                 MMIO::DirectWrite<u16>(&m_mi_mem.drv_strength));
 
   for (u32 i = 0; i < 0x1000; i += 4)
   {

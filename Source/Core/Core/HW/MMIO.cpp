@@ -5,9 +5,12 @@
 
 #include <functional>
 
+#include "CPU.h"
 #include "Common/Assert.h"
 #include "Common/CommonTypes.h"
+#include "Core/System.h"
 #include "Core/HW/MMIOHandlers.h"
+#include "Core/PowerPC/PowerPC.h"
 
 namespace MMIO
 {
@@ -172,18 +175,18 @@ WriteHandlingMethod<T>* ComplexWrite(std::function<void(Core::System&, u32, T)> 
 template <typename T>
 ReadHandlingMethod<T>* InvalidRead()
 {
-  return ComplexRead<T>([](Core::System&, u32 addr) {
-    ERROR_LOG_FMT(MEMMAP, "Trying to read {} bits from an invalid MMIO (addr={:08x})",
-                  8 * sizeof(T), addr);
+  return ComplexRead<T>([](Core::System& system, u32 addr) {
+    ERROR_LOG_FMT(MEMMAP, "Trying to read {} bits from an invalid MMIO (addr={:08x}, pc={:08x})",
+        8 * sizeof(T), addr, system.GetPPCState().pc);
     return 0;
   });
 }
 template <typename T>
 WriteHandlingMethod<T>* InvalidWrite()
 {
-  return ComplexWrite<T>([](Core::System&, u32 addr, T val) {
-    ERROR_LOG_FMT(MEMMAP, "Trying to write {} bits to an invalid MMIO (addr={:08x}, val={:08x})",
-                  8 * sizeof(T), addr, val);
+  return ComplexWrite<T>([](Core::System& system, u32 addr, T val) {
+    ERROR_LOG_FMT(MEMMAP, "Trying to write {} bits to an invalid MMIO (addr={:08x}, val={:08x}, pc={:08x})",
+                  8 * sizeof(T), addr, val, system.GetPPCState().pc);
   });
 }
 

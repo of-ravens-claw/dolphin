@@ -40,8 +40,15 @@ void Updater::CheckForUpdate()
                                     AutoUpdateChecker::CheckType::Manual);
 }
 
+// This silences an 'unreachable code' warning.
+// Extremely stupid way of handling it, but I don't care.
+volatile bool _kys = true;
+
 void Updater::OnUpdateAvailable(const NewVersionInformation& info)
 {
+  if (_kys)
+    return;
+
   if (std::getenv("DOLPHIN_UPDATE_SERVER_URL"))
   {
     TriggerUpdate(info, AutoUpdateChecker::RestartMode::RESTART_AFTER_UPDATE);

@@ -51,6 +51,9 @@ bool IsPairedSingleInstruction(UGeckoInstruction inst)
 // but HID2.LSQE is not set.
 bool Interpreter::IsInvalidPairedSingleExecution(UGeckoInstruction inst)
 {
+  if (m_ppc_state.msr.LE)
+    return true;
+
   if (!HID2(m_ppc_state).PSE && IsPairedSingleInstruction(inst))
     return true;
 

@@ -12,6 +12,7 @@
 #include "Common/Logging/Log.h"
 #include "Common/MsgHandler.h"
 #include "Common/Swap.h"
+#include "Core/HW/SI/SI_DeviceDebugUART.h"
 #include "Core/HW/SI/SI_DeviceDanceMat.h"
 #include "Core/HW/SI/SI_DeviceGBA.h"
 #ifdef HAS_LIBMGBA
@@ -21,6 +22,8 @@
 #include "Core/HW/SI/SI_DeviceGCController.h"
 #include "Core/HW/SI/SI_DeviceGCSteeringWheel.h"
 #include "Core/HW/SI/SI_DeviceKeyboard.h"
+#include "Core/HW/SI/SI_DeviceN64Controller.h"
+#include "Core/HW/SI/SI_DeviceN64Mouse.h"
 #include "Core/HW/SI/SI_DeviceNull.h"
 #include "Core/HW/SystemTimers.h"
 #include "Core/System.h"
@@ -189,6 +192,15 @@ std::unique_ptr<ISIDevice> SIDevice_Create(Core::System& system, const SIDevices
 
   case SIDEVICE_GC_KEYBOARD:
     return std::make_unique<CSIDevice_Keyboard>(system, device, port_number);
+
+  case SIDEVICE_N64_CONTROLLER:
+    return std::make_unique<CSIDevice_N64Controller>(system, device, port_number);
+
+  case SIDEVICE_N64_MOUSE:
+    return std::make_unique<CSIDevice_N64Mouse>(system, device, port_number);
+
+  case SIDEVICE_DEBUG_UART:
+    return std::make_unique<CSIDevice_DebugUART>(system, device, port_number);
 
   case SIDEVICE_AM_BASEBOARD:
   case SIDEVICE_NONE:

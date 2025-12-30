@@ -907,7 +907,7 @@ void ProcessInputPayload(const u8* data, std::size_t size)
         NOTICE_LOG_FMT(CONTROLLERINTERFACE, "New device connected to Port {} of Type: {:02x}",
                        chan + 1, channel_data[0]);
 
-        pad.button |= PAD_GET_ORIGIN;
+        pad.button |= PAD_ORIGIN;
         pad_state.origin = pad;
         pad_state.is_new_connection = true;
       }

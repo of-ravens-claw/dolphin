@@ -13,20 +13,6 @@ CSIDevice_DanceMat::CSIDevice_DanceMat(Core::System& system, SIDevices device, i
 {
 }
 
-int CSIDevice_DanceMat::RunBuffer(u8* buffer, int request_length)
-{
-  // Read the command
-  const auto command = static_cast<EBufferCommands>(buffer[0]);
-  if (command == EBufferCommands::CMD_STATUS)
-  {
-    // Only used for logging.
-    ISIDevice::RunBuffer(buffer, request_length);
-
-    return CreateStatusResponse(SI_DANCEMAT, buffer);
-  }
-  return CSIDevice_GCController::RunBuffer(buffer, request_length);
-}
-
 u32 CSIDevice_DanceMat::MapPadStatus(const GCPadStatus& pad_status)
 {
   // Map the dpad to the blue arrows, the buttons to the orange arrows

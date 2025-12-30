@@ -70,7 +70,7 @@ void ExpansionInterfaceManager::AddSP1Device()
 {
   EXIDeviceType sp1_device = EXIDeviceType::Baseboard;
   auto& system = Core::System::GetInstance();
-  if (system.IsTriforce())
+  if (!system.IsTriforce())
   {
     sp1_device = Config::Get(Config::MAIN_SERIAL_PORT_1);
   }
@@ -139,7 +139,7 @@ void ExpansionInterfaceManager::Init(const Sram* override_sram)
     const bool shift_jis =
         Config::ToGameCubeRegion(SConfig::GetInstance().m_region) == DiscIO::Region::NTSC_J;
     const CardFlashId& flash_id = sram.settings_ex.flash_id[Memcard::SLOT_A];
-    const u32 rtc_bias = sram.settings.rtc_bias;
+    const u32 rtc_bias = sram.settings.counterBias;
     const u32 sram_language = static_cast<u32>(sram.settings.language);
     const u64 format_time =
         Common::Timer::GetLocalTimeSinceJan1970() - ExpansionInterface::CEXIIPL::GC_EPOCH;
@@ -246,9 +246,9 @@ IEXIDevice* ExpansionInterfaceManager::GetDevice(Slot slot)
 void ExpansionInterfaceManager::UpdateInterrupts()
 {
   // Interrupts are mapped a bit strangely:
-  // Channel 0 Device 0 generates interrupt on channel 0
-  // Channel 0 Device 2 generates interrupt on channel 2
-  // Channel 1 Device 0 generates interrupt on channel 1
+  // Channel 0 Device 0 generates interrupt on channel 0 (Memory Card Slot A)
+  // Channel 1 Device 0 generates interrupt on channel 1 (Memory Card Slot B)
+  // Channel 0 Device 2 generates interrupt on channel 2 (Serial Port 1)
   m_channels[2]->SetEXIINT(m_channels[0]->GetDevice(4)->IsInterruptSet());
 
   bool causeInt = false;

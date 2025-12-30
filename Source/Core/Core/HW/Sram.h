@@ -56,17 +56,23 @@ struct SramFlags
 {
   enum : u8
   {
+    // 0 = NTSC, 1 = PAL, 2 = MPAL (only applicable to developer IPL)
+    kVideoMode = 3,
     // 0 = Mono, 1 = Stereo
     kStereo = 1 << 2,
     // If unset, IPL will ask user to configure settings
-    kOobeDone = 1 << 3,
+    kValidCounterBias = 1 << 3,
+    kInitialized = 1 << 4,
+    kClockAdjust = 1 << 5,
     // Always display IPL menu on boot, even if disc is inserted
     kBootToMenu = 1 << 6,
     // Display Progressive Scan prompt if the game supports it
     kProgressiveScan = 1 << 7,
   };
   bool stereo() const { return value & kStereo; }
-  bool oobe_done() const { return value & kOobeDone; }
+  bool valid_counter_bias() const { return value & kValidCounterBias; }
+  bool initialized() const { return value & kInitialized; }
+  bool clock_adjusted() const { return value & kClockAdjust; }
   bool boot_to_menu() const { return value & kBootToMenu; }
   bool progressive_scan() const { return value & kProgressiveScan; }
   void set_flag(bool enable, u8 flag)
@@ -77,7 +83,9 @@ struct SramFlags
       value &= ~flag;
   }
   void stereo(bool enable) { set_flag(enable, kStereo); }
-  void oobe_done(bool enable) { set_flag(enable, kOobeDone); }
+  void valid_counter_bias(bool enable) { set_flag(enable, kValidCounterBias); }
+  void initialized(bool enable) { set_flag(enable, kInitialized); }
+  void clock_adjusted(bool enable) { set_flag(enable, kClockAdjust); }
   void boot_to_menu(bool enable) { set_flag(enable, kBootToMenu); }
   void progressive_scan(bool enable) { set_flag(enable, kProgressiveScan); }
   u8 value;
@@ -93,10 +101,10 @@ struct SramSettings
   u32 ead0;
   u32 ead1;
 
-  u32 rtc_bias;
+  u32 counterBias;
 
   // Pixel offset for VI
-  s8 vi_horizontal_offset;
+  s8 displayOffsetH;
 
   // Unknown attribute
   u8 ntd;
@@ -110,14 +118,14 @@ struct SramSettingsEx
   // Memorycard unlock flash ID
   CardFlashId flash_id[2];
   // Device IDs of last connected wireless devices
-  u32 wireless_kbd_id;
-  u16 wireless_pad_id[4];
+  u32 wirelessKeyboardID;
+  u16 wirelessPadID[4];
   // Last non-recoverable error from DI
-  u8 di_error_code;
-  u8 field_25;
-  u8 flash_id_checksum[2];
-  u16 gbs_mode;
-  u8 field_3e[2];
+  u8 dvdErrorCode;
+  u8 _padding0;
+  u8 flashIDCheckSum[2];
+  u16 gbs;
+  u8 _padding1[2];
 };
 
 struct Sram
@@ -125,12 +133,13 @@ struct Sram
   Common::BigEndianValue<u32> rtc{};
   SramSettings settings{};
   SramSettingsEx settings_ex{};
+  u8 rvl_new[0x1BC];
   // Allow access to this entire structure as a raw blob
   // Typical union-with-byte-array method can't be used here on GCC
   u8& operator[](size_t offset) { return reinterpret_cast<u8*>(&rtc)[offset]; }
 };
 // TODO determine real full sram size for gc/wii
-static_assert(sizeof(Sram) == 0x44);
+static_assert(sizeof(Sram) == 0x200);
 
 #pragma pack(pop)
 

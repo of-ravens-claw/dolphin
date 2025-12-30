@@ -803,7 +803,7 @@ void MovieManager::CheckPadStatus(const GCPadStatus* PadStatus, int controllerID
 
   m_pad_state.is_connected = PadStatus->isConnected;
 
-  m_pad_state.get_origin = (PadStatus->button & PAD_GET_ORIGIN) != 0;
+  m_pad_state.get_origin = (PadStatus->button & PAD_ORIGIN) != 0;
 
   m_pad_state.disc = m_has_disc_change;
   m_has_disc_change = false;
@@ -1191,7 +1191,7 @@ void MovieManager::PlayController(GCPadStatus* PadStatus, int controllerID)
   PadStatus->substickY = m_pad_state.CStickY;
 
   PadStatus->button = 0;
-  PadStatus->button |= PAD_USE_ORIGIN;
+  PadStatus->button |= PAD_INTERFERE;
 
   if (m_pad_state.A)
   {
@@ -1227,7 +1227,7 @@ void MovieManager::PlayController(GCPadStatus* PadStatus, int controllerID)
     PadStatus->button |= PAD_TRIGGER_R;
 
   if (m_pad_state.get_origin)
-    PadStatus->button |= PAD_GET_ORIGIN;
+    PadStatus->button |= PAD_ORIGIN;
 
   if (m_pad_state.disc)
   {

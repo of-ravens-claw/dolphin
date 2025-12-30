@@ -40,6 +40,10 @@ int CSIDevice_Keyboard::RunBuffer(u8* buffer, int request_length)
   case EBufferCommands::CMD_DIRECT_KB:
   {
     INFO_LOG_FMT(SERIALINTERFACE, "Keyboard - Direct (Request Length: {})", request_length);
+
+    m_counter++;
+    m_counter &= 15;
+
     u32 high, low;
     GetData(high, low);
     for (int i = 0; i < 4; i++)
@@ -79,16 +83,11 @@ DataResponse CSIDevice_Keyboard::GetData(u32& hi, u32& low)
 
 void CSIDevice_Keyboard::SendCommand(u32 command, u8 poll)
 {
-  UCommand keyboard_command(command);
-
-  if (static_cast<EDirectCommands>(keyboard_command.command) == EDirectCommands::CMD_POLL)
+  //if (static_cast<EDirectCommands>((command & 0x00FF0000) >> 16) == EDirectCommands::CMD_POLL)
+  if (static_cast<EBufferCommands>((command & 0x00FF0000) >> 16) == EBufferCommands::CMD_DIRECT_KB)
   {
     m_counter++;
     m_counter &= 15;
-  }
-  else if (keyboard_command.command != 0x00)
-  {
-    ERROR_LOG_FMT(SERIALINTERFACE, "Unknown direct command     ({:#x})", command);
   }
 }
 

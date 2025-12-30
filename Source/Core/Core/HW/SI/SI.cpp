@@ -36,6 +36,10 @@ namespace SerialInterface
 // SI Internal Hardware Addresses
 enum
 {
+  // OUT - SIGetCommand/SISetCommand
+  // IN_HI/IN_LO - SIGetResponse
+  // IO_BUFFER - SITransfer
+
   SI_CHANNEL_0_OUT = 0x00,
   SI_CHANNEL_0_IN_HI = 0x04,
   SI_CHANNEL_0_IN_LO = 0x08,
@@ -164,6 +168,43 @@ void SerialInterfaceManager::RunSIBuffer(u64 user_data, s64 cycles_late)
                   actual_response_length);
     if (actual_response_length > 0 && expected_response_length != actual_response_length)
     {
+      if (expected_response_length > actual_response_length)
+      {
+        switch (m_com_csr.CHANNEL)
+        {
+        case 0:
+          m_status_reg.UNRUN0 = true;
+          break;
+        case 1:
+          m_status_reg.UNRUN1 = true;
+          break;
+        case 2:
+          m_status_reg.UNRUN2 = true;
+          break;
+        case 3:
+          m_status_reg.UNRUN3 = true;
+          break;
+        }
+      }
+      if (actual_response_length > expected_response_length)
+      {
+        switch (m_com_csr.CHANNEL)
+        {
+        case 0:
+          m_status_reg.OVRUN0 = true;
+          break;
+        case 1:
+          m_status_reg.OVRUN1 = true;
+          break;
+        case 2:
+          m_status_reg.OVRUN2 = true;
+          break;
+        case 3:
+          m_status_reg.OVRUN3 = true;
+          break;
+        }
+      }
+
 #if defined(_DEBUG)
       WARN_LOG_FMT(
           SERIALINTERFACE,
@@ -316,6 +357,10 @@ void SerialInterfaceManager::Init()
   m_exi_clock_count.hex = 0;
 
   // Supposedly set on reset, but logs from real Wii don't look like it is...
+  // Actually: it is set on reset, but by the time you gain control of the system through normal means
+  // i.e. the homebrew channel or a game, it has already been unset, so 32 MHz clock speeds are allowed.
+  // On GameCube, this is set/unset by BS1.
+  // Further, I assume the SDK also controls this at some point or other.
   // m_exi_clock_count.LOCK = 1;
 
   m_si_buffer = {};
@@ -372,8 +417,8 @@ void SerialInterfaceManager::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
     const u32 clear_rdst = ~GetRDSTBit(i);
 
     mmio->Register(base | (SI_CHANNEL_0_OUT + 0xC * i),
-                   MMIO::DirectRead<u32>(&m_channel[i].out.hex),
-                   MMIO::DirectWrite<u32>(&m_channel[i].out.hex));
+                   MMIO::DirectRead<u32>(&m_channel[i].out.hex, 0x00FFFFFF),
+                   MMIO::DirectWrite<u32>(&m_channel[i].out.hex, 0x00FFFFFF));
     mmio->Register(base | (SI_CHANNEL_0_IN_HI + 0xC * i),
                    MMIO::ComplexRead<u32>([i, clear_rdst](Core::System& system, u32) {
                      auto& si = system.GetSerialInterface();
@@ -381,7 +426,7 @@ void SerialInterfaceManager::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
                      si.UpdateInterrupts();
                      return si.m_channel[i].in_hi.hex;
                    }),
-                   MMIO::DirectWrite<u32>(&m_channel[i].in_hi.hex));
+                   MMIO::InvalidWrite<u32>());
     mmio->Register(base | (SI_CHANNEL_0_IN_LO + 0xC * i),
                    MMIO::ComplexRead<u32>([i, clear_rdst](Core::System& system, u32) {
                      auto& si = system.GetSerialInterface();
@@ -389,7 +434,7 @@ void SerialInterfaceManager::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
                      si.UpdateInterrupts();
                      return si.m_channel[i].in_lo.hex;
                    }),
-                   MMIO::DirectWrite<u32>(&m_channel[i].in_lo.hex));
+                   MMIO::InvalidWrite<u32>());
   }
 
   mmio->Register(base | SI_POLL, MMIO::DirectRead<u32>(&m_poll.hex),
@@ -469,10 +514,32 @@ void SerialInterfaceManager::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
                    // send command to devices
                    if (tmp_status.WR)
                    {
-                     si.m_channel[0].device->SendCommand(si.m_channel[0].out.hex, si.m_poll.EN0);
+                     //si.m_channel[0].device->SendCommand(si.m_channel[0].out.hex, si.m_poll.EN0);
                      si.m_channel[1].device->SendCommand(si.m_channel[1].out.hex, si.m_poll.EN1);
                      si.m_channel[2].device->SendCommand(si.m_channel[2].out.hex, si.m_poll.EN2);
                      si.m_channel[3].device->SendCommand(si.m_channel[3].out.hex, si.m_poll.EN3);
+
+                     // Hackity hack - only channel 0 for now...
+                     if (si.m_poll.EN0)
+                     {
+                       u8 buffer[128] = {};
+                       SSIChannel& chan = si.m_channel[0];
+                       
+                       buffer[0] = chan.out.CMD;
+                       buffer[1] = chan.out.OUTPUT0;
+                       buffer[2] = chan.out.OUTPUT1;
+                       si.m_channel[0].device->RunBuffer(buffer, 3);
+                       chan.in_hi.ERRSTAT = false;
+                       chan.in_hi.ERRLATCH = false;
+                       chan.in_hi.INPUT0 = buffer[0];
+                       chan.in_hi.INPUT1 = buffer[1];
+                       chan.in_hi.INPUT2 = buffer[2];
+                       chan.in_hi.INPUT3 = buffer[3];
+                       chan.in_lo.INPUT4 = buffer[4];
+                       chan.in_lo.INPUT5 = buffer[5];
+                       chan.in_lo.INPUT6 = buffer[6];
+                       chan.in_lo.INPUT7 = buffer[7];
+                     }
 
                      si.m_status_reg.WR = 0;
                      si.m_status_reg.WRST0 = 0;
@@ -482,8 +549,8 @@ void SerialInterfaceManager::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
                    }
                  }));
 
-  mmio->Register(base | SI_EXI_CLOCK_COUNT, MMIO::DirectRead<u32>(&m_exi_clock_count.hex),
-                 MMIO::DirectWrite<u32>(&m_exi_clock_count.hex));
+  mmio->Register(base | SI_EXI_CLOCK_COUNT, MMIO::DirectRead<u32>(&m_exi_clock_count.hex, 0x80000000),
+                 MMIO::DirectWrite<u32>(&m_exi_clock_count.hex, 0x80000000));
 }
 
 void SerialInterfaceManager::RemoveDevice(int device_number)

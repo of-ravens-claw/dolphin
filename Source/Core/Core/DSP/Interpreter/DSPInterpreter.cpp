@@ -240,7 +240,7 @@ void Interpreter::WriteControlRegister(u16 val)
   }
   // init - unclear if writing CR_INIT_CODE does something. Clearing CR_INIT immediately sets
   // CR_INIT_CODE, which gets unset a bit later...
-  if (((state.control_reg & CR_INIT) != 0) && ((val & CR_INIT) == 0))
+  if (((state.control_reg & CR_RESET_VECTOR) != 0) && ((val & CR_RESET_VECTOR) == 0))
   {
     INFO_LOG_FMT(DSPLLE, "DSP_CONTROL INIT");
     // Copy 1024(?) bytes of uCode from main memory 0x81000000 (or is it ARAM 00000000?)
@@ -254,8 +254,8 @@ void Interpreter::WriteControlRegister(u16 val)
 
     Host::CodeLoaded(m_dsp_core, 0x81000000, 0x1000);
 
-    val &= ~CR_INIT;
-    val |= CR_INIT_CODE;
+    val &= ~CR_RESET_VECTOR;
+    val |= CR_DSP_DMA_BUSY;
     // Number obtained from real hardware on a Wii, but it's not perfectly consistent
     state.control_reg_init_code_clear_time =
         Core::System::GetInstance().GetSystemTimers().GetFakeTimeBase() + 130;
@@ -268,11 +268,11 @@ void Interpreter::WriteControlRegister(u16 val)
 u16 Interpreter::ReadControlRegister()
 {
   auto& state = m_dsp_core.DSPState();
-  if ((state.control_reg & CR_INIT_CODE) != 0)
+  if ((state.control_reg & CR_DSP_DMA_BUSY) != 0)
   {
     auto& system = Core::System::GetInstance();
     if (system.GetSystemTimers().GetFakeTimeBase() >= state.control_reg_init_code_clear_time)
-      state.control_reg &= ~CR_INIT_CODE;
+      state.control_reg &= ~CR_DSP_DMA_BUSY;
     else
       system.GetCoreTiming().ForceExceptionCheck(50);  // Keep checking
   }

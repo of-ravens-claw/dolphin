@@ -247,7 +247,7 @@ void AdvancedPane::CreateLayout()
   mem1_override_slider_layout->setContentsMargins(0, 0, 0, 0);
   ram_override_layout->addLayout(mem1_override_slider_layout);
 
-  m_mem1_override_slider = new ConfigSliderU32(24, 64, Config::MAIN_MEM1_SIZE, 0x100000);
+  m_mem1_override_slider = new ConfigSliderU32(/* Early test boards */ 4, 128 /* Address space conflicts */, Config::MAIN_MEM1_SIZE, 0x100000);
   mem1_override_slider_layout->addWidget(m_mem1_override_slider);
 
   m_mem1_label =
@@ -263,7 +263,7 @@ void AdvancedPane::CreateLayout()
   mem2_override_slider_layout->setContentsMargins(0, 0, 0, 0);
   ram_override_layout->addLayout(mem2_override_slider_layout);
 
-  m_mem2_override_slider = new ConfigSliderU32(64, 128, Config::MAIN_MEM2_SIZE, 0x100000);
+  m_mem2_override_slider = new ConfigSliderU32(64, 256 /* Maximum that the Wii's memory controller can handle. Applies to the Wii U, primarily. */, Config::MAIN_MEM2_SIZE, 0x100000);
   mem2_override_slider_layout->addWidget(m_mem2_override_slider);
 
   m_mem2_label =

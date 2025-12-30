@@ -22,14 +22,14 @@ protected:
   struct SOrigin
   {
     u16 button;
-    u8 origin_stick_x;
-    u8 origin_stick_y;
-    u8 substick_x;
-    u8 substick_y;
-    u8 trigger_left;
-    u8 trigger_right;
-    u8 unk_4;
-    u8 unk_5;
+    u8  origin_stick_x;
+    u8  origin_stick_y;
+    u8  substick_x;
+    u8  substick_y;
+    u8  trigger_left;
+    u8  trigger_right;
+    u8  analog_a;
+    u8  analog_b;
   };
 
   enum EButtonCombo

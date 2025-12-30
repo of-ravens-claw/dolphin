@@ -24,6 +24,7 @@ public:
 
   bool IsValid() const override { return m_is_valid; }
   bool IsWii() const override { return m_is_wii; }
+  bool IsRealMode() const override { return m_is_real_mode; }
   bool IsAncast() const { return m_is_ancast; }
   u32 GetEntryPoint() const override { return m_dolheader.entryPoint; }
   bool LoadIntoMemory(Core::System& system, bool only_in_mem1 = false) const override;
@@ -63,6 +64,7 @@ private:
   bool m_is_valid;
   bool m_is_wii;
   bool m_is_ancast;
+  bool m_is_real_mode;
 
   // Copy sections to internal buffers
   bool Initialize(const std::vector<u8>& buffer);

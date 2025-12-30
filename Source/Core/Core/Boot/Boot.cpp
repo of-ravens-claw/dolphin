@@ -432,15 +432,17 @@ bool CBoot::Load_BS2(Core::System& system, const std::string& boot_rom_filename)
   // For now, HLE the first few instructions and start at 0x81200150
   // to work around this.
   auto& memory = system.GetMemory();
-  if (data.size() > 0x100)
+  if (data.size() > 0)
   {
-    memory.CopyToEmu(0x01200000, data.data() + 0x100, std::min<size_t>(data.size() - 0x100, 0x700));
+    memory.CopyToEmu(0x01200000, data.data(), std::min<size_t>(data.size(), 0x800));
   }
-  if (data.size() > 0x820)
-  {
-    memory.CopyToEmu(0x01300000, data.data() + 0x820,
-                     std::min<size_t>(data.size() - 0x820, 0x1AFE00));
-  }
+
+// Doesn't need to be copied, BS1 will DMA the IPL (BS2) for us.  
+//  if (data.size() > 0x800)
+//  {
+//    memory.CopyToEmu(0x012FFFE0, data.data() + 0x800,
+//                     std::min<size_t>(data.size() - 0x800, 0x1AFE00));
+//  }
 
   auto& ppc_state = system.GetPPCState();
   ppc_state.gpr[3] = 0xfff0001f;
@@ -451,6 +453,9 @@ bool CBoot::Load_BS2(Core::System& system, const std::string& boot_rom_filename)
   ppc_state.msr.DR = 1;
   ppc_state.msr.IR = 1;
 
+  for (auto& sr : ppc_state.sr)
+    sr = 0x80000000;
+
   ppc_state.spr[SPR_HID0] = 0x0011c464;
   ppc_state.spr[SPR_IBAT3U] = 0xfff0001f;
   ppc_state.spr[SPR_IBAT3L] = 0xfff00001;
@@ -458,9 +463,21 @@ bool CBoot::Load_BS2(Core::System& system, const std::string& boot_rom_filename)
   ppc_state.spr[SPR_DBAT3L] = 0xfff00001;
   SetupBAT(system, /*is_wii*/ false);
 
-  ppc_state.pc = 0x81200150;
+  ppc_state.pc = 0x81200250;
 
   system.GetPowerPC().MSRUpdated();
+
+  // NOTE: The BS1 hack we do is not perfect - in fact, ARAM is never configured.
+  // Of course, because emulators are imperfect, this has no side effect.
+
+  // TODO: Only apply this if AD16 is connected
+  // Little hack: Disable BS1 memory write & verification when running with AD16.
+  // If we don't do this, we can't boot the IPL with AD16 connected.
+  //
+  // Real hardware boots from 0xFFF00100, which is separate from Splash.
+  // Dolphin loads BS1 at 0x81200100, and skips the initial instructions that set HID0, MSR and the BATs.
+  if (memory.Read_U32(0x012005C8) == 0x4182FF9C)
+    memory.Write_U32(0x60000000, 0x012005C8);
 
   return true;
 }
@@ -477,7 +494,7 @@ static void CopyDefaultExceptionHandlers(Core::System& system)
   constexpr u32 EXCEPTION_HANDLER_ADDRESSES[] = {0x00000100, 0x00000200, 0x00000300, 0x00000400,
                                                  0x00000500, 0x00000600, 0x00000700, 0x00000800,
                                                  0x00000900, 0x00000C00, 0x00000D00, 0x00000F00,
-                                                 0x00001300, 0x00001400, 0x00001700};
+                                                 0x00001300, 0x00001400, 0x00001700 /* Gekko only, Broadway does not have this */ };
 
   auto& memory = system.GetMemory();
   constexpr u32 RFI_INSTRUCTION = 0x4C000064;
@@ -530,7 +547,7 @@ bool CBoot::BootUp(Core::System& system, const Core::CPUThreadGuard& guard,
 
       auto& ppc_state = system.GetPPCState();
 
-      SetupMSR(system);
+      SetupMSR(system, !executable.reader->IsRealMode());
       SetupHID(ppc_state, system.IsWii());
       SetupBAT(system, system.IsWii());
       CopyDefaultExceptionHandlers(system);

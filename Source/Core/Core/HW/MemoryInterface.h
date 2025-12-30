@@ -112,10 +112,12 @@ private:
     MIProtType prot_type;
     MIIRQMask irq_mask;
     MIIRQFlag irq_flag;
-    u16 unknown1 = 0;
+    u16 irq_clr = 0;
     MIProtAddr prot_addr;
+    u16 refresh = 0;
+    u16 config = 0; // set in Init
     std::array<MITimer, 10> timers;
-    u16 unknown2 = 0;
+    u16 drv_strength = 0;
   };
 
   MIMemStruct m_mi_mem;

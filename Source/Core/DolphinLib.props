@@ -298,6 +298,7 @@
     <ClInclude Include="Core\HW\EXI\EXI_DeviceIPL.h" />
     <ClInclude Include="Core\HW\EXI\EXI_DeviceMemoryCard.h" />
     <ClInclude Include="Core\HW\EXI\EXI_DeviceModem.h" />
+    <ClInclude Include="Core\HW\EXI\EXI_DeviceWaikiki.h" />
     <ClInclude Include="Core\HW\EXI\EXI.h" />
     <ClInclude Include="Core\HW\GBACore.h" />
     <ClInclude Include="Core\HW\GBAPad.h" />
@@ -325,12 +326,15 @@
     <ClInclude Include="Core\HW\ProcessorInterface.h" />
     <ClInclude Include="Core\HW\SI\SI_Device.h" />
     <ClInclude Include="Core\HW\SI\SI_DeviceDanceMat.h" />
+    <ClInclude Include="Core\HW\SI\SI_DeviceDebugUART.h" />
     <ClInclude Include="Core\HW\SI\SI_DeviceGBA.h" />
     <ClInclude Include="Core\HW\SI\SI_DeviceGBAEmu.h" />
     <ClInclude Include="Core\HW\SI\SI_DeviceGCAdapter.h" />
     <ClInclude Include="Core\HW\SI\SI_DeviceGCController.h" />
     <ClInclude Include="Core\HW\SI\SI_DeviceGCSteeringWheel.h" />
     <ClInclude Include="Core\HW\SI\SI_DeviceKeyboard.h" />
+    <ClInclude Include="Core\HW\SI\SI_DeviceN64Controller.h" />
+    <ClInclude Include="Core\HW\SI\SI_DeviceN64Mouse.h" />
     <ClInclude Include="Core\HW\SI\SI_DeviceNull.h" />
     <ClInclude Include="Core\HW\SI\SI.h" />
     <ClInclude Include="Core\HW\Sram.h" />
@@ -995,6 +999,7 @@
     <ClCompile Include="Core\HW\EXI\EXI_DeviceIPL.cpp" />
     <ClCompile Include="Core\HW\EXI\EXI_DeviceMemoryCard.cpp" />
     <ClCompile Include="Core\HW\EXI\EXI_DeviceModem.cpp" />
+    <ClCompile Include="Core\HW\EXI\EXI_DeviceWaikiki.cpp" />
     <ClCompile Include="Core\HW\EXI\EXI.cpp" />
     <ClCompile Include="Core\HW\GBACore.cpp" />
     <ClCompile Include="Core\HW\GBAPad.cpp" />
@@ -1020,12 +1025,15 @@
     <ClCompile Include="Core\HW\ProcessorInterface.cpp" />
     <ClCompile Include="Core\HW\SI\SI_Device.cpp" />
     <ClCompile Include="Core\HW\SI\SI_DeviceDanceMat.cpp" />
+    <ClCompile Include="Core\HW\SI\SI_DeviceDebugUART.cpp" />
     <ClCompile Include="Core\HW\SI\SI_DeviceGBA.cpp" />
     <ClCompile Include="Core\HW\SI\SI_DeviceGBAEmu.cpp" />
     <ClCompile Include="Core\HW\SI\SI_DeviceGCAdapter.cpp" />
     <ClCompile Include="Core\HW\SI\SI_DeviceGCController.cpp" />
     <ClCompile Include="Core\HW\SI\SI_DeviceGCSteeringWheel.cpp" />
     <ClCompile Include="Core\HW\SI\SI_DeviceKeyboard.cpp" />
+    <ClCompile Include="Core\HW\SI\SI_DeviceN64Controller.cpp" />
+    <ClCompile Include="Core\HW\SI\SI_DeviceN64Mouse.cpp" />
     <ClCompile Include="Core\HW\SI\SI_DeviceNull.cpp" />
     <ClCompile Include="Core\HW\SI\SI.cpp" />
     <ClCompile Include="Core\HW\Sram.cpp" />

@@ -20,6 +20,8 @@
 #include "Core/HW/Memmap.h"
 #include "Core/Host.h"
 #include "Core/System.h"
+#include "Core/Config/GraphicsSettings.h"
+#include "VideoCommon/VideoConfig.h"
 
 namespace IOS::HLE
 {
@@ -37,6 +39,25 @@ enum
   IOCTL_DOLPHIN_DISCORD_SET_PRESENCE = 0x08,
   IOCTL_DOLPHIN_DISCORD_RESET = 0x09,
   IOCTL_DOLPHIN_GET_SYSTEM_TIME = 0x0A,
+
+  // Extensions, not available in normal builds of Dolphin.
+  // We use IDs starting at 0x100 to make sure it won't conflict in case they add new commands.
+  IOCTL_DOLPHIN_ARE_EXTENSIONS_AVAILABLE = 0x100,
+  IOCTL_DOLPHIN_GET_ASPECT_RATIO = 0x101,
+  IOCTL_DOLPHIN_GET_WINDOW_RESOLUTION = 0x102,
+  IOCTL_DOLPHIN_GET_MOUSE_DATA = 0x103,
+  // Maybe implement mouse access here?
+  // And also maybe a backdoor to read/write files anywhere on the host
+  // though that could be easily abused...
+
+  // Backdoor - provides functions to Open, Read, and Write a file directly on the host file system.
+  // No hand holding.
+  IOCTL_BACKDOOR_OPEN_FILE  = 0x201, // fopen
+  IOCTL_BACKDOOR_CLOSE_FILE = 0x202, // fclose
+  IOCTL_BACKDOOR_TELL_FILE  = 0x203, // ftell
+  IOCTL_BACKDOOR_SEEK_FILE  = 0x204, // fseek
+  IOCTL_BACKDOOR_READ_FILE  = 0x205, // fread
+  IOCTL_BACKDOOR_WRITE_FILE = 0x206, // fwrite
 
 };
 
@@ -212,6 +233,295 @@ IPCReply ResetDiscord(const IOCtlVRequest& request)
   return IPCReply(IPC_SUCCESS);
 }
 
+// Our extensions start here
+
+// In our custom builds, this will return IPC_SUCCESS.
+// In normal/master builds, this will return IPC_EINVAL.
+IPCReply AreExtensionsAvailable(const IOCtlVRequest& request)
+{
+  return IPCReply(IPC_SUCCESS);
+}
+
+IPCReply GetAspectRatio(Core::System& system, const IOCtlVRequest& request)
+{
+  // TODO: Maybe we should just return the aspect ratio float instead
+  // I don't know.
+
+  // Expects 3 32-bit integers, in the following order:
+  // [0]: Aspect Ratio Mode (enum)
+  // [1]: Aspect Ratio Width
+  // [2]: Aspect Ratio Height
+  if (!request.HasNumberOfValidVectors(0, 3))
+    return IPCReply(IPC_EINVAL);
+
+  if (request.io_vectors[0].size != 4 || request.io_vectors[1].size != 4 ||
+      request.io_vectors[2].size != 4)
+    return IPCReply(IPC_EINVAL);
+
+  auto& memory = system.GetMemory();
+  AspectMode mode = Config::GFX_ASPECT_RATIO.GetCachedValue().value;
+
+  u32 width, height;
+
+  if (mode == AspectMode::Custom || mode == AspectMode::CustomStretch)
+  {
+    width = Config::GFX_CUSTOM_ASPECT_RATIO_WIDTH.GetCachedValue().value;
+    height = Config::GFX_CUSTOM_ASPECT_RATIO_HEIGHT.GetCachedValue().value;
+  }
+  else
+  {
+    width = 0;
+    height = 0;
+  }
+
+  memory.CopyToEmu(request.io_vectors[0].address, &mode, request.io_vectors[0].size);
+  memory.CopyToEmu(request.io_vectors[1].address, &width, request.io_vectors[1].size);
+  memory.CopyToEmu(request.io_vectors[2].address, &height, request.io_vectors[2].size);
+
+  return IPCReply(IPC_SUCCESS);
+}
+
+IPCReply GetWindowResolution(Core::System& system, const IOCtlVRequest& request)
+{
+  return IPCReply(IPC_EINVAL); // not implemented, return an error.
+}
+
+IPCReply GetMouseData(Core::System& system, const IOCtlVRequest& request)
+{
+  return IPCReply(IPC_EINVAL);  // not implemented, return an error.
+}
+
+static_assert(sizeof(u64) == sizeof(void*),
+              "This must be compiled in a system where the pointer size is 8 bytes");
+
+IPCReply Backdoor_OpenFile(Core::System& system, const IOCtlVRequest& request)
+{
+  // IN 0 - File path, char[] buffer
+  // IN 1 - Open mode, 0 - Read, 1 - Write
+  // IO 0 - [out] file handle (host pointer, treat as a blackbox)
+  if (!request.HasNumberOfValidVectors(2, 1))
+    return IPCReply(IPC_EINVAL);
+
+  if (request.in_vectors[1].size != 4 || request.io_vectors[0].size != 8)
+    return IPCReply(IPC_EINVAL);
+
+  auto& memory = system.GetMemory();
+  std::string file_path =
+      memory.GetString(request.in_vectors[0].address, request.in_vectors[0].size);
+
+  int open_mode = memory.Read_U32(request.in_vectors[1].address);
+  const char* libc_open_mode = nullptr;
+  if (open_mode == 0)
+    libc_open_mode = "rb";
+  else if (open_mode == 1)
+    libc_open_mode = "wb";
+  else
+    ASSERT_MSG(IOS, false, "Invalid open mode passed to Backdoor_OpenFile");
+
+  FILE* fp = fopen(file_path.c_str(), libc_open_mode);
+  if (fp == nullptr)
+  {
+    ERROR_LOG_FMT(IOS, "Backdoor_OpenFile -> fopen failed, errno {}", errno);
+    return IPCReply(IPC_EINVAL);
+  }
+
+  memory.Write_U64((u64)fp, request.io_vectors[0].address);
+  return IPCReply(IPC_SUCCESS);
+}
+
+IPCReply Backdoor_CloseFile(Core::System& system, const IOCtlVRequest& request)
+{
+  // IN 0 - File handle
+  if (!request.HasNumberOfValidVectors(1, 0))
+    return IPCReply(IPC_EINVAL);
+
+  if (request.in_vectors[0].size != 8)
+    return IPCReply(IPC_EINVAL);
+
+  auto& memory = system.GetMemory();
+  u64 fp_uptr = memory.Read_U64(request.in_vectors[0].address);
+
+  if (fp_uptr == 0)
+  {
+    ERROR_LOG_FMT(IOS, "Backdoor_CloseFile -> Invalid handle");
+    return IPCReply(IPC_EINVAL);
+  }
+
+  int ret = fclose(reinterpret_cast<FILE*>(fp_uptr));
+  if (ret != 0)
+  {
+    ERROR_LOG_FMT(IOS, "Backdoor_CloseFile -> fclose failed, errno {}", errno);
+    return IPCReply(IPC_EINVAL);
+  }
+
+  return IPCReply(IPC_SUCCESS);
+}
+
+IPCReply Backdoor_TellFile(Core::System& system, const IOCtlVRequest& request)
+{
+  // IN 0 - File handle
+  // IO 0 - Return value (current file pointer)
+  if (!request.HasNumberOfValidVectors(1, 1))
+    return IPCReply(IPC_EINVAL);
+
+  if (request.in_vectors[0].size != 8 || request.io_vectors[0].size != 4)
+    return IPCReply(IPC_EINVAL);
+
+  auto& memory = system.GetMemory();
+  u64 fp_uptr = memory.Read_U64(request.in_vectors[0].address);
+
+  if (fp_uptr == 0)
+  {
+    ERROR_LOG_FMT(IOS, "Backdoor_TellFile -> Invalid handle");
+    return IPCReply(IPC_EINVAL);
+  }
+
+  auto ret = ftell(reinterpret_cast<FILE*>(fp_uptr));
+  if (ret == -1)
+  {
+    ERROR_LOG_FMT(IOS, "Backdoor_TellFile -> ftell failed, errno {}", errno);
+    return IPCReply(IPC_EINVAL);
+  }
+
+  memory.Write_U32(ret, request.io_vectors[0].address);
+  return IPCReply(IPC_SUCCESS);
+}
+
+IPCReply Backdoor_SeekFile(Core::System& system, const IOCtlVRequest& request)
+{
+  // IN 0 - File handle
+  // IN 1 - Seek offset
+  // IN 2 - Seek origin, 0 = SEEK_SET, 1 = SEEK_CUR, 2 = SEEK_END
+  if (!request.HasNumberOfValidVectors(3, 0))
+    return IPCReply(IPC_EINVAL);
+
+  if (request.in_vectors[0].size != 8 || request.in_vectors[1].size != 4 ||
+      request.in_vectors[2].size != 4)
+    return IPCReply(IPC_EINVAL);
+
+  auto& memory = system.GetMemory();
+  u64 fp_uptr = memory.Read_U64(request.in_vectors[0].address);
+
+  if (fp_uptr == 0)
+  {
+    ERROR_LOG_FMT(IOS, "Backdoor_SeekFile -> Invalid handle");
+    return IPCReply(IPC_EINVAL);
+  }
+
+  int seek_offset = memory.Read_U32(request.in_vectors[1].address);
+  int seek_origin = memory.Read_U32(request.in_vectors[2].address);
+  int libc_origin = -1; // To be safe, we must translate it.
+  switch (seek_origin)
+  {
+  case 0:
+    libc_origin = SEEK_SET;
+    break;
+  case 1:
+    libc_origin = SEEK_CUR;
+    break;
+  case 2:
+    libc_origin = SEEK_END;
+    break;
+  default:
+    ASSERT_MSG(IOS, false, "Invalid seek origin passed to Backdoor_SeekFile");
+    break;
+  }
+
+  int ret = fseek(reinterpret_cast<FILE*>(fp_uptr), seek_offset, libc_origin);
+  if (ret != 0)
+  {
+    ERROR_LOG_FMT(IOS, "Backdoor_SeekFile -> fseek failed, errno {}", errno);
+    return IPCReply(IPC_EINVAL);
+  }
+
+  return IPCReply(IPC_SUCCESS);
+}
+
+IPCReply Backdoor_ReadFile(Core::System& system, const IOCtlVRequest& request)
+{
+  // IN 0 - File handle
+  // IN 1 - Pointer to a guest buffer where the data will be written to.
+  // IN 2 - Amount of bytes to read
+  // IO 0 - Return value (how many bytes were read)
+  if (!request.HasNumberOfValidVectors(3, 1))
+    return IPCReply(IPC_EINVAL);
+
+  if (request.in_vectors[0].size != 8 || request.in_vectors[1].size != 4 ||
+      request.in_vectors[2].size != 4 || request.io_vectors[0].size != 4)
+    return IPCReply(IPC_EINVAL);
+
+  auto& memory = system.GetMemory();
+  u64 fp_uptr = memory.Read_U64(request.in_vectors[0].address);
+
+  if (fp_uptr == 0)
+  {
+    ERROR_LOG_FMT(IOS, "Backdoor_ReadFile -> Invalid handle");
+    return IPCReply(IPC_EINVAL);
+  }
+
+  u32 buffer_guest_ptr = memory.Read_U32(request.in_vectors[1].address);
+  u32 bytes_to_read = memory.Read_U32(request.in_vectors[2].address);
+
+  u8* host_ptr = memory.GetPointerForRange(buffer_guest_ptr, bytes_to_read);
+  ASSERT(host_ptr);
+
+  FILE* fp = reinterpret_cast<FILE*>(fp_uptr);
+
+  u32 ret = (u32)fread(host_ptr, 1, bytes_to_read, fp);
+  if (ret == 0)
+  {
+    if (feof(fp))
+      ERROR_LOG_FMT(IOS, "Backdoor_ReadFile -> fread failed, unexpected end of file");
+    else if (ferror(fp))
+      ERROR_LOG_FMT(IOS, "Backdoor_ReadFile -> fread failed, errno {}", errno);
+    else
+      ERROR_LOG_FMT(IOS, "Backdoor_ReadFile -> fread failed, unknown error");
+    return IPCReply(IPC_EINVAL);
+  }
+
+  memory.Write_U32(ret, request.io_vectors[0].address);
+  return IPCReply(IPC_SUCCESS);
+}
+
+IPCReply Backdoor_WriteFile(Core::System& system, const IOCtlVRequest& request)
+{
+  // IN 0 - File handle
+  // IN 1 - Pointer to a guest buffer where the data will be read from.
+  // IN 2 - Amount of bytes to write
+  // IO 0 - Return value (how many bytes were written)
+  if (!request.HasNumberOfValidVectors(3, 1))
+    return IPCReply(IPC_EINVAL);
+
+  if (request.in_vectors[0].size != 8 || request.in_vectors[1].size != 4 ||
+      request.in_vectors[2].size != 4 || request.io_vectors[0].size != 4)
+    return IPCReply(IPC_EINVAL);
+
+  auto& memory = system.GetMemory();
+  u64 fp_uptr = memory.Read_U64(request.in_vectors[0].address);
+
+  if (fp_uptr == 0)
+  {
+    ERROR_LOG_FMT(IOS, "Backdoor_WriteFile -> Invalid handle");
+    return IPCReply(IPC_EINVAL);
+  }
+
+  u32 buffer_guest_ptr = memory.Read_U32(request.in_vectors[1].address);
+  u32 bytes_to_write = memory.Read_U32(request.in_vectors[2].address);
+
+  u8* host_ptr = memory.GetPointerForRange(buffer_guest_ptr, bytes_to_write);
+  ASSERT(host_ptr);
+
+  u32 ret = (u32)fwrite(host_ptr, 1, bytes_to_write, reinterpret_cast<FILE*>(fp_uptr));
+  if (ret == 0)
+  {
+    ERROR_LOG_FMT(IOS, "Backdoor_WriteFile -> fwrite failed, errno {}", errno);
+    return IPCReply(IPC_EINVAL);
+  }
+
+  memory.Write_U32(ret, request.io_vectors[0].address);
+  return IPCReply(IPC_SUCCESS);
+}
+
 }  // namespace
 
 IPCReply DolphinDevice::GetElapsedTime(const IOCtlVRequest& request) const
@@ -295,6 +605,33 @@ std::optional<IPCReply> DolphinDevice::IOCtlV(const IOCtlVRequest& request)
     return ResetDiscord(request);
   case IOCTL_DOLPHIN_GET_SYSTEM_TIME:
     return GetSystemTime(request);
+
+  // Our extensions
+  case IOCTL_DOLPHIN_ARE_EXTENSIONS_AVAILABLE:
+    return AreExtensionsAvailable(request);
+
+  case IOCTL_DOLPHIN_GET_ASPECT_RATIO:
+    return GetAspectRatio(GetSystem(), request);
+
+  case IOCTL_DOLPHIN_GET_WINDOW_RESOLUTION:
+    return GetWindowResolution(GetSystem(), request);
+
+  case IOCTL_DOLPHIN_GET_MOUSE_DATA:
+    return GetMouseData(GetSystem(), request);
+
+  // Even worse, our backdoors.
+  case IOCTL_BACKDOOR_OPEN_FILE:
+    return Backdoor_OpenFile(GetSystem(), request);
+  case IOCTL_BACKDOOR_CLOSE_FILE:
+    return Backdoor_CloseFile(GetSystem(), request);
+  case IOCTL_BACKDOOR_TELL_FILE:
+    return Backdoor_TellFile(GetSystem(), request);
+  case IOCTL_BACKDOOR_SEEK_FILE:
+    return Backdoor_SeekFile(GetSystem(), request);
+  case IOCTL_BACKDOOR_READ_FILE:
+    return Backdoor_ReadFile(GetSystem(), request);
+  case IOCTL_BACKDOOR_WRITE_FILE:
+    return Backdoor_WriteFile(GetSystem(), request);
 
   default:
     return IPCReply(IPC_EINVAL);

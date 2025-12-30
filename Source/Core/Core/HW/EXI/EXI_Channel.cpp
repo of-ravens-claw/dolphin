@@ -32,8 +32,16 @@ CEXIChannel::CEXIChannel(Core::System& system, u32 channel_id,
 {
   if (m_channel_id == 0 || m_channel_id == 1)
     m_status.EXTINT = 1;
+
+  // Chip Select 0
   if (m_channel_id == 1)
     m_status.CHIP_SELECT = 1;
+
+  // At boot, scrambling is enabled (ROMDIS = 0).
+  // However, because most people will not be running BS1, we should just disable scrambling...
+  // TODO: If we ever implement proper descrambling support, this needs to be removed.
+  if (m_channel_id == 0)
+    m_status.ROMDIS = 1;
 
   for (auto& device : m_devices)
     device = EXIDevice_Create(system, EXIDeviceType::None, m_channel_id, m_memcard_header_data);
@@ -85,7 +93,15 @@ void CEXIChannel::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
                    }
 
                    if (m_channel_id == 0)
-                     m_status.ROMDIS = new_status.ROMDIS;
+                   {
+                     // At boot, scrambling is enabled (ROMDIS = 0).
+                     // Normally, BS1 is expected to disable scrambling by setting ROMDIS = 1.
+                     //
+                     // Once ROMDIS is set to 1, it cannot be cleared back to 0.
+                     // This is a security measure.
+                     if (new_status.ROMDIS == 1)
+                       m_status.ROMDIS = 1;
+                   }
 
                    IEXIDevice* device = GetDevice(m_status.CHIP_SELECT ^ new_status.CHIP_SELECT);
                    m_status.CHIP_SELECT = new_status.CHIP_SELECT;

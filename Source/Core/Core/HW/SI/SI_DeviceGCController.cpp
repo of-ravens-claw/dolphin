@@ -63,6 +63,11 @@ int CSIDevice_GCController::RunBuffer(u8* buffer, int request_length)
   case EBufferCommands::CMD_DIRECT:
   {
     INFO_LOG_FMT(SERIALINTERFACE, "PAD - Direct (Request length: {})", request_length);
+    {
+      // otherwise we can't initialize the pad via transfers...
+      u32 cmd = buffer[0] << 16 | buffer[1] << 8 | buffer[2] << 0;
+      SendCommand(cmd, 0);
+    }
     u32 high, low;
     GetData(high, low);
     for (int i = 0; i < 4; i++)
@@ -98,6 +103,32 @@ int CSIDevice_GCController::RunBuffer(u8* buffer, int request_length)
     return sizeof(SOrigin);
   }
 
+  case EBufferCommands::CMD_DIRECT_LONG:
+  {
+    // terrible code but it works so!!!
+    INFO_LOG_FMT(SERIALINTERFACE, "PAD - Direct Long");
+
+    GCPadStatus status = GetPadStatus();
+
+    SOrigin origin;
+    origin.button = Common::swap16(status.button); // or the values are wrong
+    origin.origin_stick_x = status.stickX;
+    origin.origin_stick_y = status.stickY;
+    origin.substick_x = status.substickX;
+    origin.substick_y = status.substickY;
+    origin.trigger_left = status.triggerLeft;
+    origin.trigger_right = status.triggerRight;
+    origin.analog_a = status.analogA;
+    origin.analog_b = status.analogB;
+
+    const u8* calibration = reinterpret_cast<u8*>(&origin);
+    for (int i = 0; i < (int)sizeof(SOrigin); i++)
+    {
+      buffer[i] = *calibration++;
+    }
+    return sizeof(SOrigin);
+  }
+
   // GameID packet, no response needed, nothing to do
   // On real hardware, this is used to configure the BlueRetro controler
   // adapter, while licensed accessories ignore this command.
@@ -110,7 +141,7 @@ int CSIDevice_GCController::RunBuffer(u8* buffer, int request_length)
   default:
   {
     ERROR_LOG_FMT(SERIALINTERFACE, "Unknown SI command     ({:#x})", static_cast<u8>(command));
-    PanicAlertFmt("SI: Unknown command ({:#x})", static_cast<u8>(command));
+    //PanicAlertFmt("SI: Unknown command ({:#x})", static_cast<u8>(command));
   }
   break;
   }
@@ -156,7 +187,7 @@ GCPadStatus CSIDevice_GCController::GetPadStatus()
 
   // Our GCAdapter code sets PAD_GET_ORIGIN when a new device has been connected.
   // Watch for this to calibrate real controllers on connection.
-  if (pad_status.button & PAD_GET_ORIGIN)
+  if (pad_status.button & PAD_ORIGIN)
     SetOrigin(pad_status);
 
   return pad_status;
@@ -176,7 +207,7 @@ DataResponse CSIDevice_GCController::GetData(u32& hi, u32& low)
     return DataResponse::ErrorNoResponse;
 
   if (HandleButtonCombos(pad_status) == COMBO_ORIGIN)
-    pad_status.button |= PAD_GET_ORIGIN;
+    pad_status.button |= PAD_ORIGIN;
 
   hi = MapPadStatus(pad_status);
 
@@ -234,7 +265,7 @@ u32 CSIDevice_GCController::MapPadStatus(const GCPadStatus& pad_status)
   u32 hi = 0;
   hi = pad_status.stickY;
   hi |= pad_status.stickX << 8;
-  hi |= (pad_status.button | PAD_USE_ORIGIN) << 16;
+  hi |= (pad_status.button | PAD_INTERFERE) << 16;
   return hi;
 }
 
@@ -290,16 +321,17 @@ void CSIDevice_GCController::SetOrigin(const GCPadStatus& pad_status)
   m_origin.substick_y = pad_status.substickY;
   m_origin.trigger_left = pad_status.triggerLeft;
   m_origin.trigger_right = pad_status.triggerRight;
+  m_origin.analog_a = pad_status.analogA;
+  m_origin.analog_b = pad_status.analogB;
 }
 
 // SendCommand
 void CSIDevice_GCController::SendCommand(u32 command, u8 poll)
 {
-  UCommand controller_command(command);
-
-  if (static_cast<EDirectCommands>(controller_command.command) == EDirectCommands::CMD_WRITE)
+  //if (static_cast<EDirectCommands>((command & 0x00FF0000) >> 16) == EDirectCommands::CMD_WRITE)
+  if (static_cast<EBufferCommands>((command & 0x00FF0000) >> 16) == EBufferCommands::CMD_DIRECT)
   {
-    const u32 type = controller_command.parameter1;  // 0 = stop, 1 = rumble, 2 = stop hard
+    const u32 type = (command & 0x00000003);  // 0 = stop, 1 = rumble, 2 = stop hard
 
     // get the correct pad number that should rumble locally when using netplay
     const int pad_num = NetPlay_InGamePadToLocalPad(m_device_number);
@@ -315,15 +347,9 @@ void CSIDevice_GCController::SendCommand(u32 command, u8 poll)
 
     if (poll == 0)
     {
-      m_mode = controller_command.parameter2;
+      m_mode = (command & 0x00000700) >> 8;
       INFO_LOG_FMT(SERIALINTERFACE, "PAD {} set to mode {}", m_device_number, m_mode);
     }
-  }
-  else if (controller_command.command != 0x00)
-  {
-    // Costis sent 0x00 in some demos :)
-    ERROR_LOG_FMT(SERIALINTERFACE, "Unknown direct command     ({:#x})", command);
-    PanicAlertFmt("SI: Unknown direct command");
   }
 }
 
