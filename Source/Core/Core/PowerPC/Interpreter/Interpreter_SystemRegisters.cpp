@@ -441,7 +441,7 @@ void Interpreter::mtspr(Interpreter& interpreter, UGeckoInstruction inst)
     break;
 
   // Page table base etc
-  case SPR_SDR:
+  case SPR_SDR1:
     interpreter.m_mmu.SDRUpdated();
     break;
 

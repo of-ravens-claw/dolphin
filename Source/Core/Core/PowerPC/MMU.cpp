@@ -1201,7 +1201,7 @@ void MMU::GenerateISIException(u32 effective_address)
 
 void MMU::SDRUpdated()
 {
-  const auto sdr = UReg_SDR1{m_ppc_state.spr[SPR_SDR]};
+  const auto sdr = UReg_SDR1{m_ppc_state.spr[SPR_SDR1]};
   const u32 htabmask = sdr.htabmask;
 
   if (!Common::IsValidLowMask(htabmask))

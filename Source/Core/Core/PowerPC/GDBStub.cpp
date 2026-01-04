@@ -461,7 +461,7 @@ static void ReadRegister()
       wbe32hex(reply, ppc_state.spr[SPR_PVR]);
       break;
     case 104:
-      wbe32hex(reply, ppc_state.spr[SPR_SDR]);
+      wbe32hex(reply, ppc_state.spr[SPR_SDR1]);
       break;
     case 106:
       wbe32hex(reply, ppc_state.spr[SPR_DAR]);
@@ -680,7 +680,7 @@ static void WriteRegister()
       ppc_state.spr[SPR_PVR] = re32hex(bufptr);
       break;
     case 104:
-      ppc_state.spr[SPR_SDR] = re32hex(bufptr);
+      ppc_state.spr[SPR_SDR1] = re32hex(bufptr);
       system.GetMMU().SDRUpdated();
       break;
     case 106:

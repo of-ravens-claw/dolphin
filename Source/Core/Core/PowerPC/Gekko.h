@@ -839,7 +839,7 @@ enum
   SPR_DSISR = 18,
   SPR_DAR = 19,
   SPR_DEC = 22,
-  SPR_SDR = 25,
+  SPR_SDR1 = 25,
   SPR_SRR0 = 26,
   SPR_SRR1 = 27,
   SPR_TL = 268,

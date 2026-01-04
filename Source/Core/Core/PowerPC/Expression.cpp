@@ -264,7 +264,7 @@ Expression::Expression(std::string_view text, ExprPointer ex, ExprVarListPointer
         {"dsisr", {SPR, SPR_DSISR}},
         {"dar", {SPR, SPR_DAR}},
         {"dec", {SPR, SPR_DEC}},
-        {"sdr1", {SPR, SPR_SDR}},
+        {"sdr1", {SPR, SPR_SDR1}},
         {"srr0", {SPR, SPR_SRR0}},
         {"srr1", {SPR, SPR_SRR1}},
         {"tbl", {SPR, SPR_TL}},
@@ -413,7 +413,7 @@ void Expression::SynchronizeBindings(Core::System& system, SynchronizeDirection 
       else
       {
         ppc_state.spr[bind->index] = static_cast<u32>(static_cast<s64>(v->value));
-        if (bind->index == SPR_SDR)
+        if (bind->index == SPR_SDR1)
           system.GetMMU().SDRUpdated();
       }
       break;
