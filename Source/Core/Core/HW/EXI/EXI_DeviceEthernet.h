@@ -15,7 +15,7 @@
 #endif
 
 #include <SFML/Network.hpp>
-#if defined(WIN32) || (defined(__linux__) && !defined(__ANDROID__))
+#ifdef HAVE_CPPIPC
 #include <libipc/ipc.h>
 #endif
 
@@ -483,7 +483,7 @@ private:
   public:
     explicit IPCBBAInterface(CEXIETHERNET* const eth_ref) : NetworkInterface(eth_ref) {}
 
-#if defined(WIN32) || (defined(__linux__) && !defined(__ANDROID__))
+#ifdef HAVE_CPPIPC
 
     bool Activate() override;
     void Deactivate() override;

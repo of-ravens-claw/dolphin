@@ -1,22 +1,9 @@
 ########################################
 # General setup
 #
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.20...4.2.1)
 
-cmake_policy(SET CMP0079 NEW) # let target_link_libraries() link to a target defined in a different directory
 cmake_policy(SET CMP0080 OLD) # allow using BundleUtilities at configure time
-
-if (POLICY CMP0099)
-  cmake_policy(SET CMP0099 NEW) # Propagate INTERFACE_LINK_OPTIONS from private dependencies, used by MacOS framework builds of SDL
-endif()
-
-# Weird chicken-and-egg problem: We can't check the compiler before the project() call, but we have to set the policies before it.
-# So we do this in two steps: Set the policies if they exist, then error out afterwards if we end up being MSVC and they don't exist.
-if (POLICY CMP0117)
-  cmake_policy(SET CMP0091 NEW) # MSVC runtime library flags are selected by an abstraction.
-  cmake_policy(SET CMP0092 NEW) # MSVC warning flags are not in CMAKE_{C,CXX}_FLAGS by default.
-  cmake_policy(SET CMP0117 NEW) # MSVC RTTI flag will not be added by default.
-endif()
 
 if (POLICY CMP0141)
   cmake_policy(SET CMP0141 NEW) # MSVC debug information format flags are selected by an abstraction.
@@ -28,6 +15,12 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0.0" CACHE STRING "")
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE "${CMAKE_CURRENT_SOURCE_DIR}/CMake/FlagsOverride.cmake")
 
+# CMake 3.28 and later scan c++ source files for module imports by default. Since we don't use
+# modules scanning is pointless, so disable it. This also prevents Clang from generating an error
+# if the clang-scan-deps tool isn't installed:
+# "CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS-NOTFOUND: not found".
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 project(dolphin-emu)
 
 if (CMAKE_VERSION VERSION_LESS "3.25" AND CMAKE_SYSTEM_NAME MATCHES "Linux")
@@ -35,12 +28,6 @@ if (CMAKE_VERSION VERSION_LESS "3.25" AND CMAKE_SYSTEM_NAME MATCHES "Linux")
 endif()
 
 if (MSVC)
-  if (POLICY CMP0117)
-    # cmake is a weird language. You can't do if(not POLICY)
-  else()
-    message(FATAL_ERROR "Please update to CMake 3.20 or higher.")
-  endif()
-
   set(CMAKE_C_STANDARD 99)
   set(CMAKE_CXX_STANDARD 23)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -51,12 +38,12 @@ if (COMPILER STREQUAL "GNU")
   set(COMPILER "GCC") # prefer printing GCC instead of GNU
 endif()
 
-# Enforce minimum compiler versions that support the c++20 features we use
-set (GCC_min_version 11)
-set (Clang_min_version 14)
+# Enforce minimum compiler versions that support the c++23 features we use
+set (GCC_min_version 12)
+set (Clang_min_version 15)
 set (AppleClang_min_version 14.0.3)
-set (min_xcode_version "14.0") # corresponding xcode version for AppleClang_min_version
-set (MSVC_min_version 14.32)
+set (min_xcode_version "14.3") # corresponding xcode version for AppleClang_min_version
+set (MSVC_min_version 19.32)
 set (min_vs_version "2022 17.2.3") # corresponding Visual Studio version for MSVC_min_version
 
 message(STATUS "Using ${COMPILER} ${CMAKE_CXX_COMPILER_VERSION}")
@@ -781,13 +768,15 @@ add_subdirectory(Externals/rangeset)
 add_subdirectory(Externals/FatFs)
 
 if (USE_RETRO_ACHIEVEMENTS)
-	add_subdirectory(Externals/rcheevos)
+  add_subdirectory(Externals/rcheevos)
 endif()
 
 add_subdirectory(Externals/watcher)
 
-if(WIN32 OR LINUX)
+# Any other platform or BSD is currently unsupported by cpp-ipc
+if(WIN32 OR LINUX OR CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" OR CMAKE_SYSTEM_NAME STREQUAL "QNX")
   add_subdirectory(Externals/cpp-ipc)
+  add_definitions(-DHAVE_CPPIPC)
 endif()
 
 ########################################
@@ -800,7 +789,7 @@ file(REMOVE "${PROJECT_SOURCE_DIR}/Source/Core/Common/scmrev.h")
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/Source/Core/Common)
 if (NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/Source/Core/Common/scmrev.h)
-	file(TOUCH ${CMAKE_CURRENT_BINARY_DIR}/Source/Core/Common/scmrev.h)
+  file(TOUCH ${CMAKE_CURRENT_BINARY_DIR}/Source/Core/Common/scmrev.h)
 endif()
 
 if(APPLE)
@@ -819,13 +808,13 @@ endif()
 
 find_package(Git)
 if(NOT GIT_FOUND)
-	set(GIT_EXECUTABLE "")
+  set(GIT_EXECUTABLE "")
 endif()
 add_custom_target(
-	dolphin_scmrev
-	${CMAKE_COMMAND} -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR} -DPROJECT_BINARY_DIR=${PROJECT_BINARY_DIR} -DDISTRIBUTOR=${DISTRIBUTOR} -DDOLPHIN_DEFAULT_UPDATE_TRACK=${DOLPHIN_DEFAULT_UPDATE_TRACK} -DGIT_FOUND=${GIT_FOUND} -DGIT_EXECUTABLE=${GIT_EXECUTABLE} -DDOLPHIN_WC_REVISION=${DOLPHIN_WC_REVISION} -DDOLPHIN_WC_DESCRIBE=${DOLPHIN_WC_DESCRIBE} -DDOLPHIN_WC_BRANCH=${DOLPHIN_WC_BRANCH} -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET} -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake/ScmRevGen.cmake
-	BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/Source/Core/Common/scmrev.h" "${CMAKE_CURRENT_BINARY_DIR}/Source/Core/DolphinQt/Info.plist" "${CMAKE_CURRENT_BINARY_DIR}/Source/Core/MacUpdater/Info.plist" "${CMAKE_CURRENT_BINARY_DIR}/Flatpak/org.DolphinEmu.dolphin-emu.metainfo.xml"
-	VERBATIM
+  dolphin_scmrev
+  ${CMAKE_COMMAND} -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR} -DPROJECT_BINARY_DIR=${PROJECT_BINARY_DIR} -DDISTRIBUTOR=${DISTRIBUTOR} -DDOLPHIN_DEFAULT_UPDATE_TRACK=${DOLPHIN_DEFAULT_UPDATE_TRACK} -DGIT_FOUND=${GIT_FOUND} -DGIT_EXECUTABLE=${GIT_EXECUTABLE} -DDOLPHIN_WC_REVISION=${DOLPHIN_WC_REVISION} -DDOLPHIN_WC_DESCRIBE=${DOLPHIN_WC_DESCRIBE} -DDOLPHIN_WC_BRANCH=${DOLPHIN_WC_BRANCH} -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET} -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake/ScmRevGen.cmake
+  BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/Source/Core/Common/scmrev.h" "${CMAKE_CURRENT_BINARY_DIR}/Source/Core/DolphinQt/Info.plist" "${CMAKE_CURRENT_BINARY_DIR}/Source/Core/MacUpdater/Info.plist" "${CMAKE_CURRENT_BINARY_DIR}/Flatpak/org.DolphinEmu.dolphin-emu.metainfo.xml"
+  VERBATIM
 )
 
 # This is here so #include "Common/scmrev.h" finds the generated header.
