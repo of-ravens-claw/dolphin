@@ -7,7 +7,6 @@
 #include <cstring>
 #include <type_traits>
 
-#include "Common/BitField.h"
 #include "Common/ChunkFile.h"
 #include "Common/Config/Config.h"
 #include "Common/CommonTypes.h"
