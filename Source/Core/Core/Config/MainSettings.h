@@ -79,6 +79,7 @@ extern const Info<AudioCommon::DPL2Quality> MAIN_DPL2_QUALITY;
 extern const Info<int> MAIN_AUDIO_LATENCY;
 extern const Info<int> MAIN_AUDIO_BUFFER_SIZE;
 extern const Info<bool> MAIN_AUDIO_FILL_GAPS;
+extern const Info<bool> MAIN_AUDIO_PRESERVE_PITCH;
 extern const Info<std::string> MAIN_MEMCARD_A_PATH;
 extern const Info<std::string> MAIN_MEMCARD_B_PATH;
 const Info<std::string>& GetInfoForMemcardPath(ExpansionInterface::Slot slot);
@@ -384,6 +385,8 @@ extern const std::array<Info<std::string>, EMULATED_LOGITECH_MIC_COUNT>
     MAIN_LOGITECH_MIC_MICROPHONE;
 extern const std::array<Info<bool>, EMULATED_LOGITECH_MIC_COUNT> MAIN_LOGITECH_MIC_MUTED;
 extern const std::array<Info<s16>, EMULATED_LOGITECH_MIC_COUNT> MAIN_LOGITECH_MIC_VOLUME_MODIFIER;
+
+extern const Info<std::string> MAIN_TRIFORCE_IP_REDIRECTIONS;
 
 // GameCube path utility functions
 

@@ -122,9 +122,7 @@ public:
   void mcrf(UGeckoInstruction inst);
   void mcrxr(UGeckoInstruction inst);
   void mfsr(UGeckoInstruction inst);
-  void mtsr(UGeckoInstruction inst);
   void mfsrin(UGeckoInstruction inst);
-  void mtsrin(UGeckoInstruction inst);
   void twx(UGeckoInstruction inst);
   void mfspr(UGeckoInstruction inst);
   void mftb(UGeckoInstruction inst);
@@ -336,11 +334,9 @@ protected:
   // Branch Watch
   template <bool condition>
   void WriteBranchWatch(u32 origin, u32 destination, UGeckoInstruction inst,
-                        Arm64Gen::ARM64Reg reg_a, Arm64Gen::ARM64Reg reg_b,
                         BitSet32 gpr_caller_save, BitSet32 fpr_caller_save);
   void WriteBranchWatchDestInRegister(u32 origin, Arm64Gen::ARM64Reg destination,
-                                      UGeckoInstruction inst, Arm64Gen::ARM64Reg reg_a,
-                                      Arm64Gen::ARM64Reg reg_b, BitSet32 gpr_caller_save,
+                                      UGeckoInstruction inst, BitSet32 gpr_caller_save,
                                       BitSet32 fpr_caller_save);
 
   // Exits
