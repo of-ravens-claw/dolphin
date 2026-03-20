@@ -245,13 +245,13 @@ void Jit64::mtspr(UGeckoInstruction inst)
   case SPR_CTR:
 
   case SPR_GQR0:
-  case SPR_GQR0 + 1:
-  case SPR_GQR0 + 2:
-  case SPR_GQR0 + 3:
-  case SPR_GQR0 + 4:
-  case SPR_GQR0 + 5:
-  case SPR_GQR0 + 6:
-  case SPR_GQR0 + 7:
+  case SPR_GQR1:
+  case SPR_GQR2:
+  case SPR_GQR3:
+  case SPR_GQR4:
+  case SPR_GQR5:
+  case SPR_GQR6:
+  case SPR_GQR7:
     // These are safe to do the easy way, see the bottom of this function.
     break;
 
@@ -409,14 +409,14 @@ void Jit64::mfspr(UGeckoInstruction inst)
   }
   case SPR_WPAR:
   case SPR_DEC:
-  case SPR_PMC1:
-  case SPR_PMC2:
-  case SPR_PMC3:
-  case SPR_PMC4:
+  case SPR_UMMCR0:
   case SPR_UPMC1:
   case SPR_UPMC2:
+  case SPR_USIA:
+  case SPR_UMMCR1:
   case SPR_UPMC3:
   case SPR_UPMC4:
+  case SPR_USDA:
   case SPR_IABR:
     FALLBACK_IF(true);
   default:

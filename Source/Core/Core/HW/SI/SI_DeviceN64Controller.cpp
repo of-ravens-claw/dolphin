@@ -134,9 +134,7 @@ int CSIDevice_N64Controller::RunBuffer(u8* buffer, int request_length)
   case EBufferCommands::CMD_STATUS:
   case EBufferCommands::CMD_RESET:
   {
-    const u32 id = Common::swap32(SI_N64_CONTROLLER | 0 /* No Pak installed */);
-    std::memcpy(buffer, &id, 3);
-    return 3;
+    return CreateStatusResponse(SI_N64_CONTROLLER, buffer);
   }
 
   case EBufferCommands::CMD_DIRECT_N64:

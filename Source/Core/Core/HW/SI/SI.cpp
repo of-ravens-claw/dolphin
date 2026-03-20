@@ -514,12 +514,13 @@ void SerialInterfaceManager::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
                    // send command to devices
                    if (tmp_status.WR)
                    {
-                     //si.m_channel[0].device->SendCommand(si.m_channel[0].out.hex, si.m_poll.EN0);
+                     si.m_channel[0].device->SendCommand(si.m_channel[0].out.hex, si.m_poll.EN0);
                      si.m_channel[1].device->SendCommand(si.m_channel[1].out.hex, si.m_poll.EN1);
                      si.m_channel[2].device->SendCommand(si.m_channel[2].out.hex, si.m_poll.EN2);
                      si.m_channel[3].device->SendCommand(si.m_channel[3].out.hex, si.m_poll.EN3);
 
                      // Hackity hack - only channel 0 for now...
+                     /*
                      if (si.m_poll.EN0)
                      {
                        u8 buffer[128] = {};
@@ -540,6 +541,7 @@ void SerialInterfaceManager::RegisterMMIO(MMIO::Mapping* mmio, u32 base)
                        chan.in_lo.INPUT6 = buffer[6];
                        chan.in_lo.INPUT7 = buffer[7];
                      }
+                     */
 
                      si.m_status_reg.WR = 0;
                      si.m_status_reg.WRST0 = 0;

@@ -166,8 +166,9 @@ private:
                             u32 output_address);
   static void RunFunction(Core::System& system, u32 address);
 
-  static bool Boot_WiiWAD(Core::System& system, const DiscIO::VolumeWAD& wad);
-  static bool BootNANDTitle(Core::System& system, u64 title_id);
+  static bool Boot_WiiWAD(Core::System& system, const DiscIO::VolumeWAD& wad,
+                          const Core::CPUThreadGuard& guard);
+  static bool BootNANDTitle(Core::System& system, u64 title_id, const Core::CPUThreadGuard& guard);
 
   static void SetupMSR(Core::System& system, bool want_relocate = true);
   static void SetupHID(PowerPC::PowerPCState& ppc_state, bool is_wii);
@@ -187,7 +188,7 @@ private:
   static bool Load_BS2(Core::System& system, const std::string& boot_rom_filename);
 
   static void SetupGCMemory(Core::System& system, const Core::CPUThreadGuard& guard);
-  static bool SetupWiiMemory(Core::System& system, IOS::HLE::IOSC::ConsoleType console_type);
+  static bool SetupWiiMemory(Core::System& system, const Core::CPUThreadGuard& guard);
 };
 
 class BootExecutableReader

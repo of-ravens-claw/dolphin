@@ -45,6 +45,10 @@ void InitSRAM(Sram* sram, const std::string& filename)
   {
     *sram = sram_dump;
   }
+
+  //sram->settings.ntd = 0x00; // development mode
+  sram->settings.ntd = 0x80; // production mode
+  FixSRAMChecksums(sram);
 }
 
 void SetCardFlashID(Sram* sram, const u8* buffer, ExpansionInterface::Slot card_slot)

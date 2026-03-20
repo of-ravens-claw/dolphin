@@ -320,7 +320,7 @@ void MenuBar::AddToolsMenu()
       gc_ipl->addAction(tr("PAL"), this, [this] { emit BootGameCubeIPL(DiscIO::Region::PAL); });
 
   m_dev_ipl = gc_ipl->addAction(tr("Triforce"), this,
-                                [this] { emit BootGameCubeIPL(DiscIO::Region::Unknown); });
+                                [this] { emit BootGameCubeIPL(DiscIO::Region::DEV); });
 
   tools_menu->addAction(tr("Memory Card Manager"), this, [this] { emit ShowMemcardManager(); });
 

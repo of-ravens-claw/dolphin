@@ -243,6 +243,7 @@ void ExpansionInterfaceManager::UpdateInterrupts()
   // Channel 0 Device 0 generates interrupt on channel 0 (Memory Card Slot A)
   // Channel 1 Device 0 generates interrupt on channel 1 (Memory Card Slot B)
   // Channel 0 Device 2 generates interrupt on channel 2 (Serial Port 1)
+  // Channel 2 Device 0 generates a DEBUG interrupt, as opposed to an EXI interrupt (Serial Port 2)
   m_channels[2]->SetEXIINT(m_channels[0]->GetDevice(4)->IsInterruptSet());
 
   bool causeInt = false;
@@ -250,6 +251,11 @@ void ExpansionInterfaceManager::UpdateInterrupts()
     causeInt |= channel->IsCausingInterrupt();
 
   m_system.GetProcessorInterface().SetInterrupt(ProcessorInterface::INT_CAUSE_EXI, causeInt);
+
+  // This should probably check PI masks... but it will work for now
+  if (m_channels[2]->GetDevice(1))
+    m_system.GetProcessorInterface().SetInterrupt(ProcessorInterface::INT_CAUSE_DEBUG,
+                                                  m_channels[2]->GetDevice(1)->IsInterruptSet());
 }
 
 void ExpansionInterfaceManager::UpdateInterruptsCallback(Core::System& system, u64 userdata,

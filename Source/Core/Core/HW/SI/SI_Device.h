@@ -18,11 +18,6 @@ class SystemTimersManager;
 
 namespace SerialInterface
 {
-// Devices can reply with these
-constexpr u32 SI_ERROR_NO_RESPONSE = 0x0008;  // Nothing is attached
-constexpr u32 SI_ERROR_UNKNOWN     = 0x0040;  // Unknown device is attached
-constexpr u32 SI_ERROR_BUSY        = 0x0080;  // Still detecting
-
 // Device types
 constexpr u32 SI_TYPE_MASK = 0x1800'0000;
 constexpr u32 SI_TYPE_N64  = 0x0000'0000;

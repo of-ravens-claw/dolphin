@@ -101,13 +101,13 @@ public:
 
   enum class DIResult : s32
   {
-    Success = 1,
-    DriveError = 2,
-    CoverClosed = 4,
-    ReadTimedOut = 16,
-    SecurityError = 32,
-    VerifyError = 64,
-    BadArgument = 128,
+    Success        = 0x01,
+    DriveError     = 0x02,
+    CoverClosed    = 0x04,
+    ReadTimedOut   = 0x10,
+    SecurityError  = 0x20,
+    VerifyError    = 0x40,
+    BadArgument    = 0x80,
   };
 
 private:

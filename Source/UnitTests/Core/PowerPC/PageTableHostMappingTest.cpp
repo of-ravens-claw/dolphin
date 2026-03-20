@@ -200,7 +200,7 @@ public:
     sdr.htaborg = page_table_base >> 16;
 
     auto& system = Core::System::GetInstance();
-    system.GetPPCState().spr[SPR_SDR] = sdr.Hex;
+    system.GetPPCState().spr[SPR_SDR1] = sdr.Hex;
     system.GetMMU().SDRUpdated();
   }
 

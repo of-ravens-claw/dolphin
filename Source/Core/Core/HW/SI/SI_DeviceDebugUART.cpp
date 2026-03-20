@@ -27,9 +27,7 @@ int CSIDevice_DebugUART::RunBuffer(u8* buffer, int request_length)
     case EBufferCommands::CMD_STATUS:
     case EBufferCommands::CMD_RESET:
     {
-      const u32 id = Common::swap32(0x0842AF00);
-      std::memcpy(buffer, &id, 3);
-      return 3;
+      return CreateStatusResponse(0x0842AF00, buffer);
     }
 
     case EBufferCommands::CMD_DIRECT_N64: // CMD_UART_TXCNT

@@ -619,6 +619,15 @@ void EmulationKernel::AddStaticDevices()
     AddDevice(std::make_unique<WFSSRVDevice>(*this, "/dev/usb/wfssrv"));
     AddDevice(std::make_unique<WFSIDevice>(*this, "/dev/wfsi"));
   }
+
+  // Evil devices used by cIOS - some games change their behavior if these are found.
+  {
+    //AddDevice(std::make_unique<DeviceStub>(*this, "/dev/flash")); // Real device in early IOS versions and all development IOS builds.
+    //AddDevice(std::make_unique<DeviceStub>(*this, "/dev/mload"));
+    //AddDevice(std::make_unique<DeviceStub>(*this, "/dev/sdio/sdhc"));
+    //AddDevice(std::make_unique<DeviceStub>(*this, "/dev/usb123"));
+    //AddDevice(std::make_unique<DeviceStub>(*this, "/dev/usb2"));
+  }
 }
 
 s32 EmulationKernel::GetFreeDeviceID()

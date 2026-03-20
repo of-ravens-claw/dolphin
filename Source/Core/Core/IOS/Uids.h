@@ -29,7 +29,11 @@ enum IOSUid : u32
   PID_SSL = 16,
   PID_USB = 17,
   PID_P2P = 18,
-  PID_UNKNOWN = 19,
+  PID_WFS = 19, // Also called 'Unknown' in older IOS versions,
+                // BroadOn forgot to update the pid to string function when they added the WFS process.
+                // This has caused numerous issues because people insist on calling it 'Unknown',
+                // for some idiotic reason.
+  PID_MAX = 20,
 };
 
 constexpr u32 FIRST_PPC_UID = 0x1000;

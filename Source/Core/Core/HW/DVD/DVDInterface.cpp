@@ -274,7 +274,7 @@ void DVDInterface::Init()
   m_DICR.Hex = 0;
   m_DIIMMBUF = 0;
   m_DICFG.Hex = 0;
-  m_DICFG.CONFIG = 1;  // Disable bootrom descrambler
+  m_DICFG.CONFIG = ~1;  // Disable bootrom descrambler
 
   ResetDrive(false);
 
@@ -296,7 +296,7 @@ void DVDInterface::Init()
     // The Triforce IPL expects the cover to be closed
     m_DICVR.Hex = 0;
     // The Triforce IPL checks this bit to set the physical memory to
-    // either 50MB(unset) or 24MB(set)
+    // either 48MB(unset) or 24MB(set)
     m_DICFG.Hex |= 8;
   }
 }
@@ -797,7 +797,7 @@ void DVDInterface::ExecuteCommand(ReplyType reply_type)
       m_error_code = DriveError::None;
       return;
     }
-    // Normal read command pass on to normal handling
+    // Normal read command, pass on to normal handling
     m_DICMDBUF[0] <<= 24;
   }
 
@@ -810,11 +810,20 @@ void DVDInterface::ExecuteCommand(ReplyType reply_type)
   // Used by both GC and Wii
   case DICommand::Inquiry:
   {
-    // (shuffle2) Taken from my Wii
     auto& memory = m_system.GetMemory();
-    memory.Write_U32(0x00000002, m_DIMAR);      // Revision level, device code
-    memory.Write_U32(0x20060526, m_DIMAR + 4);  // Release date
-    memory.Write_U32(0x41000000, m_DIMAR + 8);  // Version
+    if (m_system.IsWii() || m_system.IsMIOS()) // MIOS is still Wii hardware.
+    {
+      // NDEV data
+      memory.Write_U32(0x00000202, m_DIMAR);  // Revision level, device code
+      memory.Write_U32(0x20060526, m_DIMAR + 4);  // Release date, probably wrong for NDEV, but whatever...
+    }
+    else
+    {
+      // GDEV data
+      memory.Write_U32(0x00000201, m_DIMAR);  // Revision level, device code
+      memory.Write_U32(0x20021130, m_DIMAR + 4);  // Release date
+    }
+    memory.Write_U32(0x00000000, m_DIMAR + 8);  // Version
 
     INFO_LOG_FMT(DVDINTERFACE, "DVDLowInquiry (Buffer {:#010x}, {:#x})", m_DIMAR, m_DILENGTH);
     break;

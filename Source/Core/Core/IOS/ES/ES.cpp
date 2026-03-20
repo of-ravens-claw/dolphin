@@ -55,7 +55,7 @@ constexpr std::array<DirectoryToCreate, 9> s_directories_to_create = {{
     {"/tmp", 0, public_modes},
     {"/import", 0, {FS::Mode::ReadWrite, FS::Mode::ReadWrite, FS::Mode::None}},
     {"/meta", 0, public_modes, SYSMENU_UID, SYSMENU_GID},
-    {"/wfs", 0, {FS::Mode::ReadWrite, FS::Mode::None, FS::Mode::None}, PID_UNKNOWN, PID_UNKNOWN},
+    {"/wfs", 0, {FS::Mode::ReadWrite, FS::Mode::None, FS::Mode::None}, PID_WFS, PID_WFS},
 }};
 
 constexpr const char LAUNCH_FILE_PATH[] = "/sys/launch.sys";
@@ -886,12 +886,11 @@ ReturnCode ESCore::CheckStreamKeyPermissions(const u32 uid, const u8* ticket_vie
   // This function can only be used by specific UIDs, depending on the title type.
   // It cannot be used at all internally, unless the request comes from the WFS process.
   // It can only be used from the PPC for some title types.
-  // Note: PID 0x19 is used by the WFS modules.
-  if (uid < FIRST_PPC_UID && uid != PID_UNKNOWN)
+  if (uid < FIRST_PPC_UID && uid != PID_WFS)
     return ES_EINVAL;
 
   // If the title type is of this specific type, then this function is limited to WFS.
-  if (title_flags & ES::TITLE_TYPE_WFS_MAYBE && uid != PID_UNKNOWN)
+  if (title_flags & ES::TITLE_TYPE_WFS_MAYBE && uid != PID_WFS)
     return ES_EINVAL;
 
   const u64 view_title_id = Common::swap64(ticket_view + offsetof(ES::TicketView, title_id));
@@ -903,7 +902,7 @@ ReturnCode ESCore::CheckStreamKeyPermissions(const u32 uid, const u8* ticket_vie
       Common::swap32(ticket_view + offsetof(ES::TicketView, permitted_title_mask));
   const u32 permitted_title_id =
       Common::swap32(ticket_view + offsetof(ES::TicketView, permitted_title_id));
-  if ((uid == PID_UNKNOWN && (~permitted_title_mask & 0x13) != permitted_title_id) ||
+  if ((uid == PID_WFS && (~permitted_title_mask & 0x13) != permitted_title_id) ||
       !IsActiveTitlePermittedByTicket(ticket_view))
   {
     return ES_EACCES;

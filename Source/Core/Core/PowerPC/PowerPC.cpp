@@ -168,19 +168,22 @@ void PowerPCManager::ResetRegisters()
     // dumped from my system... only ones that really matter are pvr & hid1
     m_ppc_state.spr[SPR_PVR] = 0x00087200;
     m_ppc_state.spr[SPR_HID1] = 0x30000000;  // We're running at 3x the bus clock
-    m_ppc_state.spr[SPR_ECID0] = 0x00008b2c; // Very weird, may be a Gekko leftover?
+    m_ppc_state.spr[SPR_ECID0] = 0x00008b2c;
     m_ppc_state.spr[SPR_ECID1] = 0x13ef90ac;
     m_ppc_state.spr[SPR_ECID2] = 0x70e00040;
     m_ppc_state.spr[SPR_ECID3] = 0x0024a380;
+    m_ppc_state.spr[SPR_TDCL] = 0x0041039E;
+    m_ppc_state.spr[SPR_TDCH] = 0x005C02D5;
   }
   else
   {
+    // Taken from https://github.com/emukidid/swiss-gc/issues/380
     m_ppc_state.spr[SPR_PVR] = 0x00083214;
     m_ppc_state.spr[SPR_HID1] = 0x80000000;  // We're running at 3x the bus clock
-    m_ppc_state.spr[SPR_ECID0] = 0x0d96e200;
-    m_ppc_state.spr[SPR_ECID1] = 0x1840c00d;
-    m_ppc_state.spr[SPR_ECID2] = 0x82bb08e8;
-    m_ppc_state.spr[SPR_ECID3] = 0x00000000; // Unknown, may be a Broadway addition?
+    m_ppc_state.spr[SPR_ECID0] = 0x0D964300;
+    m_ppc_state.spr[SPR_ECID1] = 0x0480C886;
+    m_ppc_state.spr[SPR_ECID2] = 0xBE9EB048;
+    m_ppc_state.spr[SPR_ECID3] = 0xFE1A3A08;
   }
   // Engineering samples appear to have the ECID zeroed out.
 

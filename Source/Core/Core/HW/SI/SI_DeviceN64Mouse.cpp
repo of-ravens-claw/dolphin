@@ -52,9 +52,7 @@ int CSIDevice_N64Mouse::RunBuffer(u8* buffer, int request_length)
   case EBufferCommands::CMD_STATUS:
   case EBufferCommands::CMD_RESET:
   {
-    u32 id = Common::swap32(SI_N64_MOUSE);
-    std::memcpy(buffer, &id, 3);
-    return 3;
+    return CreateStatusResponse(SI_N64_MOUSE, buffer);
   }
 
   case EBufferCommands::CMD_DIRECT_N64:

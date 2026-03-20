@@ -17,19 +17,18 @@ struct EventType;
 namespace SystemTimers
 {
 /*
-GameCube                   MHz
-flipper <-> ARAM bus:      81 (DSP)
-gekko <-> flipper bus:     162
-flipper <-> 1T-SRAM bus:   324
-gekko:                     486
-
-These contain some guesses:
-Wii                             MHz
-hollywood <-> GDDR3 RAM bus:    ??? no idea really
-broadway <-> hollywood bus:     243
-hollywood <-> 1T-SRAM bus:      486
-broadway:                       729
-*/
+ * GameCube                        MHz
+ * Flipper   <-> ARAM bus:         81 (DSP)
+ * Gekko     <-> Flipper bus:      162
+ * Flipper   <-> 1T-SRAM bus:      324
+ * Gekko:                          486
+ * 
+ * Wii                             MHz
+ * Hollywood <-> GDDR3 RAM bus:    999
+ * Broadway  <-> Hollywood bus:    243
+ * Hollywood <-> 1T-SRAM bus:      486
+ * Broadway:                       729
+ */
 // Ratio of TB and Decrementer to clock cycles.
 // TB clk is 1/4 of BUS clk. And it seems BUS clk is really 1/3 of CPU clk.
 // So, ratio is 1 / (1/4 * 1/3 = 1/12) = 12.

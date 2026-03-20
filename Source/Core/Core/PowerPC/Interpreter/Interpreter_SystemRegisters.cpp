@@ -276,6 +276,10 @@ void Interpreter::mfspr(Interpreter& interpreter, UGeckoInstruction inst)
     ppc_state.spr[index] = ppc_state.GetXER().Hex;
     break;
 
+  case SPR_UMMCR0:
+    ppc_state.spr[index] = ppc_state.spr[SPR_MMCR0];
+    break;
+
   case SPR_UPMC1:
     ppc_state.spr[index] = ppc_state.spr[SPR_PMC1];
     break;
@@ -284,12 +288,24 @@ void Interpreter::mfspr(Interpreter& interpreter, UGeckoInstruction inst)
     ppc_state.spr[index] = ppc_state.spr[SPR_PMC2];
     break;
 
+  case SPR_USIA:
+    ppc_state.spr[index] = ppc_state.spr[SPR_SIA];
+    break;
+
+  case SPR_UMMCR1:
+    ppc_state.spr[index] = ppc_state.spr[SPR_MMCR1];
+    break;
+
   case SPR_UPMC3:
     ppc_state.spr[index] = ppc_state.spr[SPR_PMC3];
     break;
 
   case SPR_UPMC4:
     ppc_state.spr[index] = ppc_state.spr[SPR_PMC4];
+    break;
+
+  case SPR_USDA:
+    ppc_state.spr[index] = ppc_state.spr[SPR_SDA];
     break;
 
   case SPR_IABR:
@@ -314,6 +330,18 @@ void Interpreter::mtspr(Interpreter& interpreter, UGeckoInstruction inst)
     return;
   }
 
+  // Trying to write to the read-only timebase halves causes an illegal instruction exception.
+  // Same applies to the ECID registers.
+  // And the user-mode Performance Monitor registers.
+  if (index == SPR_TL || index == SPR_TU || index == SPR_ECID0 || index == SPR_ECID1 ||
+      index == SPR_ECID2 || index == SPR_ECID3 || index == SPR_UMMCR0 || index == SPR_UPMC1 ||
+      index == SPR_UPMC2 || index == SPR_USIA || index == SPR_UMMCR1 || index == SPR_UPMC3 ||
+      index == SPR_UPMC4 || index == SPR_USDA)
+  {
+    GenerateProgramException(ppc_state, ProgramExceptionCause::IllegalInstruction);
+    return;
+  }
+
   const u32 old_value = ppc_state.spr[index];
   ppc_state.spr[index] = ppc_state.gpr[inst.RD];
 
@@ -322,11 +350,6 @@ void Interpreter::mtspr(Interpreter& interpreter, UGeckoInstruction inst)
 
   switch (index)
   {
-  case SPR_TL:
-  case SPR_TU:
-    PanicAlertFmt("Illegal Write to TL/TU");
-    break;
-
   case SPR_TL_W:
     TL(ppc_state) = ppc_state.gpr[inst.RD];
     interpreter.m_system.GetSystemTimers().TimeBaseSet();
@@ -338,7 +361,11 @@ void Interpreter::mtspr(Interpreter& interpreter, UGeckoInstruction inst)
     break;
 
   case SPR_PVR:
-    // PVR is a read-only register so maintain its value.
+  case SPR_SDA:
+  case SPR_USDA:
+  case SPR_TDCL:
+  case SPR_TDCH:
+    // These are read-only registers so maintain their value.
     ppc_state.spr[index] = old_value;
     break;
 
@@ -380,7 +407,9 @@ void Interpreter::mtspr(Interpreter& interpreter, UGeckoInstruction inst)
     // TODO: emulate locked cache and DMA bits.
     // Only the lower half of the register (upper half from a little endian perspective)
     // is modifiable, except for the DMAQL field.
-    ppc_state.spr[index] = (ppc_state.spr[index] & 0xF0FF0000) | (old_value & 0x0F000000);
+    //
+    // Lower 16 bits are modifiable despite being listed as 'reserved'.
+    ppc_state.spr[index] = (ppc_state.spr[index] & 0xF0FFFFFF) | (old_value & 0x0F000000);
     break;
 
   case SPR_HID4:
@@ -396,6 +425,7 @@ void Interpreter::mtspr(Interpreter& interpreter, UGeckoInstruction inst)
     ASSERT_MSG(POWERPC, ppc_state.spr[SPR_WPAR] == GPFifo::GATHER_PIPE_PHYSICAL_ADDRESS,
                "Gather pipe changed to unexpected address {:08x} @ PC {:08x}",
                ppc_state.spr[SPR_WPAR], ppc_state.pc);
+    ppc_state.spr[index] &= 0xFFFFFFE0; // These bits are reserved, i.e. they cannot be modified.
     interpreter.m_system.GetGPFifo().ResetGatherPipe();
     break;
 
@@ -497,8 +527,11 @@ void Interpreter::mtspr(Interpreter& interpreter, UGeckoInstruction inst)
     }
     break;
 
-  case SPR_MMCR0:
+  // Order is deliberately flipped.
   case SPR_MMCR1:
+    ppc_state.spr[index] &= 0xFFC00000;
+    [[fallthrough]];
+  case SPR_MMCR0:
     MMCRUpdated(ppc_state);
     break;
 

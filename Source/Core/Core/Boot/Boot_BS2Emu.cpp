@@ -60,9 +60,30 @@ void PresetTimeBaseTicks(Core::System& system, const Core::CPUThreadGuard& guard
   //
   // On Wii, it is 60.75.
   // (243 / 4) = 60.75
-  const u64 time_base_ticks = emulated_time * 40500000ULL;
+  const u64 time_base_clock = system.IsWii() ? 60750000ULL : 40500000ULL;
 
-  system.GetMemory().Write_U32(time_base_ticks, 0x000030D8);
+  const u64 time_base_ticks = emulated_time * time_base_clock;
+
+  system.GetMemory().Write_U64(time_base_ticks, 0x000030D8);
+}
+
+// Copied from Boot.cpp
+void CopyDefaultExceptionHandlers(Core::System& system)
+{
+  constexpr u32 EXCEPTION_HANDLER_ADDRESSES[] = {
+      0x00000100, 0x00000200,
+      0x00000300, 0x00000400,
+      0x00000500, 0x00000600,
+      0x00000700, 0x00000800,
+      0x00000900, 0x00000C00,
+      0x00000D00, 0x00000F00,
+      0x00001300, 0x00001400 /* 750 only, Gekko and Broadway do not have this */,
+      0x00001700 /* Gekko only, Broadway does not have this */};
+
+  auto& memory = system.GetMemory();
+  constexpr u32 RFI_INSTRUCTION = 0x4C000064;
+  for (const u32 address : EXCEPTION_HANDLER_ADDRESSES)
+    memory.Write_U32(RFI_INSTRUCTION, address);
 }
 }  // Anonymous namespace
 
@@ -271,15 +292,11 @@ void CBoot::SetupGCMemory(Core::System& system, const Core::CPUThreadGuard& guar
 #if ENABLE_MEMORY_SETUP_FUNCS
   auto& memory = system.GetMemory();
 
-  // Booted from bootrom. 0xE5207C22 = booted from jtag
-  memory.Write_U32(0x0D15EA5E, 0x00000020);
-
-  // Physical Memory Size (24MB on retail)
+  // Physical Memory Size (24MB on Retail)
   memory.Write_U32(memory.GetRamSizeReal(), 0x00000028);
 
   // Must use a development console type in order to get working message output
-  const u32 console_type = static_cast<u32>(Core::ConsoleType::LatestDevkit);
-  memory.Write_U32(console_type, 0x0000002C);
+  memory.Write_U32(static_cast<u32>(Core::ConsoleType::LatestDevkit), 0x0000002C);
 
   // Fake the VI Init of the IPL (YAGCD 4.2.1.4)
   memory.Write_U32(DiscIO::IsNTSC(SConfig::GetInstance().m_region) ? 0 : 1, 0x000000CC);
@@ -291,9 +308,6 @@ void CBoot::SetupGCMemory(Core::System& system, const Core::CPUThreadGuard& guar
   memory.Write_U32(486'000'000, 0x000000FC);  // CPU Clock Speed
 
   PresetTimeBaseTicks(system, guard);
-
-  // HIO checks this
-  // memory.Write_U32(0x8200, 0x000030e6);    // Console type
   #endif
 }
 
@@ -314,6 +328,8 @@ bool CBoot::EmulatedBS2_GC(Core::System& system, const Core::CPUThreadGuard& gua
   SetupBAT(system, /*is_wii*/ false);
 
   SetupGCMemory(system, guard);
+
+  CopyDefaultExceptionHandlers(system);
 
   // Datel titles don't initialize the postMatrices, but they have dual-texture coordinate
   // transformation enabled. We initialize all of xfmem to 0, which results in everything using
@@ -345,16 +361,7 @@ bool CBoot::EmulatedBS2_GC(Core::System& system, const Core::CPUThreadGuard& gua
     system.GetDVDInterface().AudioBufferConfig(false, 0);
   }
 
-  const bool ntsc = DiscIO::IsNTSC(SConfig::GetInstance().m_region);
-
-  // Setup pointers like real BS2 does
-
-  // StackPointer, used to be set to 0x816ffff0
-  ppc_state.gpr[1] = ntsc ? 0x81566550 : 0x815edca8;
-  // Global pointer to Small Data Area 2 Base (haven't seen anything use it...meh)
-  ppc_state.gpr[2] = ntsc ? 0x81465cc0 : 0x814b5b20;
-  // Global pointer to Small Data Area Base (Luigi's Mansion's apploader uses it)
-  ppc_state.gpr[13] = ntsc ? 0x81465320 : 0x814b4fc0;
+  ppc_state.gpr[1] = 0x81600000;
 
   return RunApploader(system, guard, /*is_wii*/ false, volume, riivolution_patches);
 }
@@ -385,7 +392,7 @@ static DiscIO::Region CodeRegion(char c)
 }
 #endif
 
-bool CBoot::SetupWiiMemory(Core::System& system, IOS::HLE::IOSC::ConsoleType console_type)
+bool CBoot::SetupWiiMemory(Core::System& system, const Core::CPUThreadGuard& guard)
 {
 #if ENABLE_MEMORY_SETUP_FUNCS
   static const std::map<DiscIO::Region, const RegionSetting> region_settings = {
@@ -397,7 +404,7 @@ bool CBoot::SetupWiiMemory(Core::System& system, IOS::HLE::IOSC::ConsoleType con
   RegionSetting region_setting = entryPos->second;
 
   std::string serno;
-  std::string model = "RVL-001(" + region_setting.area + ")";
+  std::string model = "RVT-001(" + region_setting.area + ")";
   CreateSystemMenuTitleDirs();
   const std::string settings_file_path(Common::GetTitleDataPath(Titles::SYSTEM_MENU) +
                                        "/" WII_SETTING);
@@ -481,38 +488,13 @@ bool CBoot::SetupWiiMemory(Core::System& system, IOS::HLE::IOSC::ConsoleType con
 
   INFO_LOG_FMT(BOOT, "Setup Wii Memory...");
 
-  /*
-  Set hardcoded global variables to Wii memory. These are partly collected from
-  WiiBrew. These values are needed for the games to function correctly. A few
-  values in this region will also be placed here by the game as it boots.
-  They are:
-  0x80000038  Start of FST
-  0x8000003c  Size of FST Size
-  0x80000060  Copyright code
-  */
+  memory.Write_U32(memory.GetRamSizeReal(), 0x00000028);
+  memory.Write_U32(static_cast<u32>(Core::ConsoleType::NDEV2_1), 0x0000002c);
+  memory.Write_U32(243'000'000, 0x000000f8);
+  memory.Write_U32(729'000'000, 0x000000fc);
 
-  memory.Write_U32(0x0D15EA5E, 0x00000020);               // Another magic word
-  memory.Write_U32(0x00000001, 0x00000024);               // Unknown
-  memory.Write_U32(memory.GetRamSizeReal(), 0x00000028);  // MEM1 size 24MB
-  const Core::ConsoleType board_model = console_type == IOS::HLE::IOSC::ConsoleType::RVT ?
-                                            Core::ConsoleType::NDEV2_1 :
-                                            Core::ConsoleType::RVL_Retail1;
-  memory.Write_U32(static_cast<u32>(board_model), 0x0000002c);  // Board Model
-  memory.Write_U32(0x00000000, 0x00000030);                     // Init
-  memory.Write_U32(0x817FEC60, 0x00000034);                     // Init
-  // 38, 3C should get start, size of FST through apploader
-  memory.Write_U32(0x8008f7b8, 0x000000e4);               // Thread Init
-  memory.Write_U32(memory.GetRamSizeReal(), 0x000000f0);  // "Simulated memory size" (debug mode?)
-  memory.Write_U32(0x8179b500, 0x000000f4);               // __start
-  memory.Write_U32(243'000'000, 0x000000f8);              // Bus speed
-  memory.Write_U32(729'000'000, 0x000000fc);              // CPU speed
-  memory.Write_U16(0x0000, 0x000030e6);                   // Console type
-  memory.Write_U32(0x00000000, 0x000030c0);               // EXI
-  memory.Write_U32(0x00000000, 0x000030c4);               // EXI
-  memory.Write_U32(0x00000000, 0x000030dc);               // Time
-  memory.Write_U32(0xffffffff, 0x000030d8);               // Unknown, set by any official NAND title
-  memory.Write_U16(0x8201 /* DVD_DEVICECODE_PRESENT | DVD_DEVICECODE_GDEV */, 0x000030e6);                   // Dev console / debug capable
-  memory.Write_U32(0x00000000, 0x000030f0);               // Apploader
+  // NDEV DVD drive type (required to get prints working)
+  memory.Write_U16(0x8202, 0x000030e6);
 
   // During the boot process, 0x315c is first set to 0xdeadbeef by IOS
   // in the boot_ppc syscall. The value is then partly overwritten by SDK titles.
@@ -521,20 +503,16 @@ bool CBoot::SetupWiiMemory(Core::System& system, IOS::HLE::IOSC::ConsoleType con
   //
   // 0x0113 appears to mean v1.13, which is the latest version.
   // It is fine to always use the latest value as apploaders work with all versions.
+  memory.Write_U8(0x80, 0x0000315c);
+  memory.Write_U8(0x80, 0x0000315d);
   memory.Write_U16(0x0113, 0x0000315e);
 
-  memory.Write_U8(0x80, 0x0000315c);         // OSInit
-  memory.Write_U16(0x0000, 0x000030e0);      // PADInit
-  memory.Write_U32(0x80000000, 0x00003184);  // GameID Address
+  memory.Write_U8(0x80, 0x00003184);
 
   // Fake the VI Init of the IPL
   memory.Write_U32(DiscIO::IsNTSC(SConfig::GetInstance().m_region) ? 0 : 1, 0x000000CC);
 
-  // Clear exception handler. Why? Don't we begin with only zeros?
-  for (int i = 0x3000; i < 0x3040; i += 4)
-  {
-    memory.Write_U32(0x00000000, i);
-  }
+  PresetTimeBaseTicks(system, guard);
 #endif
   return true;
 }
@@ -599,8 +577,7 @@ bool CBoot::EmulatedBS2_Wii(Core::System& system, const Core::CPUThreadGuard& gu
   const s32 ios_override = Config::Get(Config::MAIN_OVERRIDE_BOOT_IOS);
   const u64 ios = ios_override >= 0 ? Titles::IOS(static_cast<u32>(ios_override)) : tmd.GetIOSId();
 
-  const auto console_type = volume.GetTicket(data_partition).GetConsoleType();
-  if (!SetupWiiMemory(system, console_type) || !system.GetIOS()->BootIOS(ios))
+  if (!SetupWiiMemory(system, guard) || !system.GetIOS()->BootIOS(ios))
     return false;
 
   auto di =
@@ -623,11 +600,9 @@ bool CBoot::EmulatedBS2_Wii(Core::System& system, const Core::CPUThreadGuard& gu
   SetupHID(ppc_state, /*is_wii*/ true);
   SetupBAT(system, /*is_wii*/ true);
 
-  memory.Write_U32(0x4c000064, 0x00000300);  // Write default DSI Handler:   rfi
-  memory.Write_U32(0x4c000064, 0x00000800);  // Write default FPU Handler:   rfi
-  memory.Write_U32(0x4c000064, 0x00000C00);  // Write default Syscall Handler: rfi
+  CopyDefaultExceptionHandlers(system);
 
-  ppc_state.gpr[1] = 0x816ffff0;  // StackPointer
+  ppc_state.gpr[1] = 0x81600000;
 
   if (!RunApploader(system, guard, /*is_wii*/ true, volume, riivolution_patches))
     return false;

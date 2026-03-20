@@ -61,9 +61,7 @@ int CSIDevice_GCAdapter::RunBuffer(u8* buffer, int request_length)
     // into this port on the hardware gc adapter, exposing it to the game.
     if (!GCAdapter::DeviceConnected(m_device_number))
     {
-      const u32 device = Common::swap32(SI_ERROR_NO_RESPONSE);
-      memcpy(buffer, &device, sizeof(device));
-      return 4;
+      return -1;
     }
   }
   return CSIDevice_GCController::RunBuffer(buffer, request_length);
@@ -71,14 +69,12 @@ int CSIDevice_GCAdapter::RunBuffer(u8* buffer, int request_length)
 
 DataResponse CSIDevice_GCAdapter::GetData(u32& hi, u32& low)
 {
-  CSIDevice_GCController::GetData(hi, low);
+  DataResponse res = CSIDevice_GCController::GetData(hi, low);
 
-  if (m_simulate_konga)
-  {
+  if (res == DataResponse::Success && m_simulate_konga)
     hi &= CSIDevice_TaruKonga::HI_BUTTON_MASK;
-  }
 
-  return DataResponse::Success;
+  return res;
 }
 
 void CSIDevice_GCController::Rumble(int pad_num, ControlState strength, SIDevices device)

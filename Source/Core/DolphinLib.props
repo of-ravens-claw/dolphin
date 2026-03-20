@@ -299,6 +299,7 @@
     <ClInclude Include="Core\HW\EXI\EXI_DeviceIPL.h" />
     <ClInclude Include="Core\HW\EXI\EXI_DeviceMemoryCard.h" />
     <ClInclude Include="Core\HW\EXI\EXI_DeviceModem.h" />
+    <ClInclude Include="Core\HW\EXI\EXI_DeviceUSBAdapter.h" />
     <ClInclude Include="Core\HW\EXI\EXI_DeviceWaikiki.h" />
     <ClInclude Include="Core\HW\EXI\EXI.h" />
     <ClInclude Include="Core\HW\GBACore.h" />
@@ -1005,6 +1006,7 @@
     <ClCompile Include="Core\HW\EXI\EXI_DeviceIPL.cpp" />
     <ClCompile Include="Core\HW\EXI\EXI_DeviceMemoryCard.cpp" />
     <ClCompile Include="Core\HW\EXI\EXI_DeviceModem.cpp" />
+    <ClCompile Include="Core\HW\EXI\EXI_DeviceUSBAdapter.cpp" />
     <ClCompile Include="Core\HW\EXI\EXI_DeviceWaikiki.cpp" />
     <ClCompile Include="Core\HW\EXI\EXI.cpp" />
     <ClCompile Include="Core\HW\GBACore.cpp" />

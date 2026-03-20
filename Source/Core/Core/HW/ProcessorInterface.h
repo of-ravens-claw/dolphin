@@ -27,7 +27,7 @@ namespace ProcessorInterface
 {
 enum InterruptCause
 {
-  INT_CAUSE_PI = 0x1,           // YAGCD says: GP runtime error
+  INT_CAUSE_PI = 0x1,           // Any number of PI errors
   INT_CAUSE_RSW = 0x2,          // Reset Switch
   INT_CAUSE_DI = 0x4,           // DVD interrupt
   INT_CAUSE_SI = 0x8,           // Serial interface
@@ -39,7 +39,7 @@ enum InterruptCause
   INT_CAUSE_PE_TOKEN = 0x200,   // GP Token
   INT_CAUSE_PE_FINISH = 0x400,  // GP Finished
   INT_CAUSE_CP = 0x800,         // Command Fifo
-  INT_CAUSE_DEBUG = 0x1000,     // Debugger (from devkit)
+  INT_CAUSE_DEBUG = 0x1000,     // Debugger (from serial port 2)
   INT_CAUSE_HSP = 0x2000,       // High Speed Port (from sdram controller)
   INT_CAUSE_WII_IPC = 0x4000,   // Wii IPC
   INT_CAUSE_RST_BUTTON =

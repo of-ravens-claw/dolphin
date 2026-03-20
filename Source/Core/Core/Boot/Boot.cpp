@@ -504,7 +504,7 @@ static void CopyDefaultExceptionHandlers(Core::System& system)
   constexpr u32 EXCEPTION_HANDLER_ADDRESSES[] = {0x00000100, 0x00000200, 0x00000300, 0x00000400,
                                                  0x00000500, 0x00000600, 0x00000700, 0x00000800,
                                                  0x00000900, 0x00000C00, 0x00000D00, 0x00000F00,
-                                                 0x00001300, 0x00001400, 0x00001700 /* Gekko only, Broadway does not have this */ };
+                                                 0x00001300, 0x00001400 /* 750 only, Gekko and Broadway do not have this */, 0x00001700 /* Gekko only, Broadway does not have this */ };
 
   auto& memory = system.GetMemory();
   constexpr u32 RFI_INSTRUCTION = 0x4C000064;
@@ -568,15 +568,15 @@ bool CBoot::BootUp(Core::System& system, const Core::CPUThreadGuard& guard,
       SetupBAT(system, system.IsWii());
       CopyDefaultExceptionHandlers(system);
 
+      // Set a value for the SP. It doesn't matter where this points to,
+      // as long as it is a valid location.
+      ppc_state.gpr[1] = 0x81600000;
+
       if (system.IsWii())
       {
-        // Set a value for the SP. It doesn't matter where this points to,
-        // as long as it is a valid location. This value is taken from a homebrew binary.
-        ppc_state.gpr[1] = 0x8004d4bc;
-
         // Because there is no TMD to get the requested system (IOS) version from,
         // we default to IOS58, which is the version used by the Homebrew Channel.
-        SetupWiiMemory(system, IOS::HLE::IOSC::ConsoleType::Retail);
+        SetupWiiMemory(system, guard);
         system.GetIOS()->BootIOS(Titles::IOS(58));
 
         // The Apploader writes an IOS-like version number into memory.
@@ -623,7 +623,7 @@ bool CBoot::BootUp(Core::System& system, const Core::CPUThreadGuard& guard,
     bool operator()(const DiscIO::VolumeWAD& wad) const
     {
       SetDefaultDisc(system.GetDVDInterface());
-      if (!Boot_WiiWAD(system, wad))
+      if (!Boot_WiiWAD(system, wad, guard))
         return false;
 
       AchievementManager::GetInstance().LoadGame(&wad);
@@ -635,7 +635,7 @@ bool CBoot::BootUp(Core::System& system, const Core::CPUThreadGuard& guard,
     bool operator()(const BootParameters::NANDTitle& nand_title) const
     {
       SetDefaultDisc(system.GetDVDInterface());
-      if (!BootNANDTitle(system, nand_title.id))
+      if (!BootNANDTitle(system, nand_title.id, guard))
         return false;
 
       AchievementManager::GetInstance().LoadGame(nullptr);

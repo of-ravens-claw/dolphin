@@ -877,6 +877,7 @@ enum
   SPR_UMMCR1 = 940,
   SPR_UPMC3 = 941,
   SPR_UPMC4 = 942,
+  SPR_USDA = 943,
 
   SPR_MMCR0 = 952,
   SPR_PMC1 = 953,
@@ -885,6 +886,7 @@ enum
   SPR_MMCR1 = 956,
   SPR_PMC3 = 957,
   SPR_PMC4 = 958,
+  SPR_SDA = 959,
 
   SPR_HID0 = 1008,
   SPR_HID1 = 1009,
@@ -924,6 +926,8 @@ enum
 
   // Broadway additions
   SPR_HID4 = 1011,
+  SPR_TDCL = 1012,
+  SPR_TDCH = 1018,
   SPR_IBAT4U = 560,
   SPR_IBAT4L = 561,
   SPR_IBAT5U = 562,
