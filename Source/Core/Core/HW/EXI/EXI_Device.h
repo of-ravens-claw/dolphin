@@ -43,6 +43,7 @@ enum class EXIDeviceType : int
   EthernetIPC,
   Waikiki,
   USBAdapter,
+  PoCFlash,
   None = 0xFF
 };
 
@@ -89,7 +90,7 @@ std::unique_ptr<IEXIDevice> EXIDevice_Create(Core::System& system, EXIDeviceType
 
 template <>
 struct fmt::formatter<ExpansionInterface::EXIDeviceType>
-    : EnumFormatter<ExpansionInterface::EXIDeviceType::USBAdapter>
+    : EnumFormatter<ExpansionInterface::EXIDeviceType::PoCFlash>
 {
   static constexpr array_type names = {
       _trans("Dummy"),
@@ -110,6 +111,7 @@ struct fmt::formatter<ExpansionInterface::EXIDeviceType>
       _trans("Broadband Adapter (IPC)"),
       _trans("Waikiki"),
       _trans("USB-ADAPTER"),
+      _trans("Proof-of-Concept Flash"),
   };
 
   constexpr formatter() : EnumFormatter(names) {}

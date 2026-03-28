@@ -132,7 +132,12 @@ void GameCubePane::CreateWidgets()
   // Add slot devices
   for (const auto device : {EXIDeviceType::None, EXIDeviceType::Dummy, EXIDeviceType::MemoryCard,
                             EXIDeviceType::MemoryCardFolder, EXIDeviceType::Gecko,
-                            EXIDeviceType::AGP, EXIDeviceType::Microphone, EXIDeviceType::Waikiki, EXIDeviceType::USBAdapter,})
+           EXIDeviceType::AGP,
+           EXIDeviceType::Microphone,
+           EXIDeviceType::Waikiki,
+           EXIDeviceType::USBAdapter,
+           EXIDeviceType::PoCFlash,
+       })
   {
     const QString name = tr(fmt::format("{:n}", device).c_str());
     const int value = static_cast<int>(device);

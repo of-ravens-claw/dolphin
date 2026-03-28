@@ -15,6 +15,7 @@
 #include "Core/HW/EXI/EXI_DeviceIPL.h"
 #include "Core/HW/EXI/EXI_DeviceMemoryCard.h"
 #include "Core/HW/EXI/EXI_DeviceModem.h"
+#include "Core/HW/EXI/EXI_DevicePoCFlash.h"
 #include "Core/HW/EXI/EXI_DeviceUSBAdapter.h"
 #include "Core/HW/EXI/EXI_DeviceWaikiki.h"
 #include "Core/HW/Memmap.h"
@@ -189,6 +190,10 @@ std::unique_ptr<IEXIDevice> EXIDevice_Create(Core::System& system, const EXIDevi
 
   case EXIDeviceType::USBAdapter:
     result = std::make_unique<CEXIUSBAdapter>(system);
+    break;
+
+    case EXIDeviceType::PoCFlash:
+    result = std::make_unique<CEXIPoCFlash>(system);
     break;
 
   case EXIDeviceType::None:
