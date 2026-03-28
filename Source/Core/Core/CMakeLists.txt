@@ -294,6 +294,18 @@ add_library(core
   HW/StreamADPCM.h
   HW/SystemTimers.cpp
   HW/SystemTimers.h
+  HW/Triforce/DeckReader.cpp
+  HW/Triforce/DeckReader.h
+  HW/Triforce/FZeroAX.cpp
+  HW/Triforce/FZeroAX.h
+  HW/Triforce/ICCardReader.cpp
+  HW/Triforce/ICCardReader.h
+  HW/Triforce/IOPorts.cpp
+  HW/Triforce/IOPorts.h
+  HW/Triforce/JVSIO.cpp
+  HW/Triforce/JVSIO.h
+  HW/Triforce/MarioKartGP.cpp
+  HW/Triforce/MarioKartGP.h
   HW/Triforce/SerialDevice.cpp
   HW/Triforce/SerialDevice.h
   HW/Triforce/Touchscreen.cpp
