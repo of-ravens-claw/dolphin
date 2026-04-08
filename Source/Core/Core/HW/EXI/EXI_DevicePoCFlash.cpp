@@ -1,4 +1,4 @@
-// Copyright 2008 Dolphin Emulator Project
+// Copyright 2026 Dolphin Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "Core/HW/EXI/EXI_DevicePoCFlash.h"
@@ -93,7 +93,7 @@ void CEXIPoCFlash::TransferByte(u8& data)
 
     if (m_command_bytes_received == sizeof(m_command))
     {
-      INFO_LOG_FMT(EXPANSIONINTERFACE, "PoC-Flash cmd {} {:06x}", m_command.command(),
+      DEBUG_LOG_FMT(EXPANSIONINTERFACE, "PoC-Flash cmd {} {:06x}", m_command.command(),
                     m_command.sector());
     }
     return;
@@ -101,7 +101,7 @@ void CEXIPoCFlash::TransferByte(u8& data)
 
   const eCommands command = static_cast<eCommands>(m_command.command());
 
-  INFO_LOG_FMT(EXPANSIONINTERFACE, "PoC-Flash data {} {:06x} {:02x}", m_command.command(),
+  DEBUG_LOG_FMT(EXPANSIONINTERFACE, "PoC-Flash data {} {:06x} {:02x}", m_command.command(),
                 m_command.sector(), data);
 
   switch (command)
